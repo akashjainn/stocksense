@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { getRedis } from "@/lib/redis";
-import { getLatestBars } from "@/lib/marketData/alpaca";
+import { getSnapshots } from "@/lib/marketData/alpaca";
 
 export async function GET(req: NextRequest) {
   const symbols = (req.nextUrl.searchParams.get("symbols") || "")
@@ -8,19 +8,18 @@ export async function GET(req: NextRequest) {
     .map((s) => s.trim().toUpperCase())
     .filter(Boolean);
   if (!symbols.length) return new Response("symbols required", { status: 400 });
-  const key = `quotes:${symbols.sort().join(",")}`;
+  const key = `snapshots:${symbols.sort().join(",")}`;
   try {
     const redis = getRedis();
     await redis.connect().catch(() => {});
     const cached = await redis.get(key);
     if (cached) return Response.json(JSON.parse(cached));
   } catch {}
-  const bars = await getLatestBars(symbols);
-  const payload = { data: bars.map(b => ({ symbol: b.symbol, o: b.o, h: b.h, l: b.l, c: b.c, v: b.v, asOf: b.t })), at: Date.now() };
+  const data = await getSnapshots(symbols);
   try {
     const redis = getRedis();
     await redis.connect().catch(() => {});
-    await redis.setex(key, 30, JSON.stringify(payload));
+    await redis.setex(key, 30, JSON.stringify(data));
   } catch {}
-  return Response.json(payload);
+  return Response.json(data);
 }
