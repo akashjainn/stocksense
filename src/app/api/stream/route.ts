@@ -17,8 +17,9 @@ export async function GET(req: NextRequest) {
           const payload = `event: quote\ndata: ${JSON.stringify(tick)}\n\n`;
           controller.enqueue(encoder.encode(payload));
         });
-      } catch (e: any) {
-        controller.enqueue(encoder.encode(`event: error\ndata: ${JSON.stringify({ error: e.message })}\n\n`));
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : 'unknown error';
+        controller.enqueue(encoder.encode(`event: error\ndata: ${JSON.stringify({ error: msg })}\n\n`));
       }
 
       const heartbeat = setInterval(() => {
@@ -32,7 +33,7 @@ export async function GET(req: NextRequest) {
       };
 
       // When client disconnects
-      (req as any).signal?.addEventListener("abort", () => {
+  (req as unknown as { signal?: AbortSignal }).signal?.addEventListener("abort", () => {
         close();
       });
     },

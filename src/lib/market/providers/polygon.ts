@@ -33,20 +33,21 @@ export class PolygonProvider implements MarketDataProvider {
     const out: Bar[] = [];
     for (const sym of symbols) {
       // Aggregates (1 day) v2
-      const data = await http<any>(`/v2/aggs/ticker/${encodeURIComponent(sym)}/range/1/day/${from}/${to}`, {
+  type AggsResp = { results?: Array<{ t: number; o?: number; h?: number; l?: number; c?: number; v?: number }> };
+  const data = await http<AggsResp>(`/v2/aggs/ticker/${encodeURIComponent(sym)}/range/1/day/${from}/${to}`, {
         adjusted: "true",
         sort: "asc",
         limit: 50000,
       });
-      const results = Array.isArray(data.results) ? data.results : [];
+  const results = Array.isArray(data.results) ? data.results : [];
       for (const r of results) {
         out.push({
           t: toISO(r.t),
-          o: Number(r.o ?? r.open ?? 0),
-          h: Number(r.h ?? r.high ?? 0),
-          l: Number(r.l ?? r.low ?? 0),
-          c: Number(r.c ?? r.close ?? 0),
-          v: r.v ?? r.volume,
+          o: Number(r.o ?? 0),
+          h: Number(r.h ?? 0),
+          l: Number(r.l ?? 0),
+          c: Number(r.c ?? 0),
+          v: r.v,
         });
       }
     }
@@ -54,7 +55,8 @@ export class PolygonProvider implements MarketDataProvider {
   }
 
   async getMinuteBars(symbol: string, fromIso: string, toIso: string): Promise<Bar[]> {
-    const data = await http<any>(`/v2/aggs/ticker/${encodeURIComponent(symbol)}/range/1/minute/${fromIso}/${toIso}`, {
+  type AggsResp = { results?: Array<{ t: number; o?: number; h?: number; l?: number; c?: number; v?: number }> };
+    const data = await http<AggsResp>(`/v2/aggs/ticker/${encodeURIComponent(symbol)}/range/1/minute/${fromIso}/${toIso}`, {
       adjusted: "true",
       sort: "asc",
       limit: 50000,
@@ -64,46 +66,49 @@ export class PolygonProvider implements MarketDataProvider {
     for (const r of results) {
       out.push({
         t: toISO(r.t),
-        o: Number(r.o ?? r.open ?? 0),
-        h: Number(r.h ?? r.high ?? 0),
-        l: Number(r.l ?? r.low ?? 0),
-        c: Number(r.c ?? r.close ?? 0),
-        v: r.v ?? r.volume,
+  o: Number(r.o ?? 0),
+  h: Number(r.h ?? 0),
+  l: Number(r.l ?? 0),
+  c: Number(r.c ?? 0),
+  v: r.v,
       });
     }
     return out;
   }
 
   async getQuote(symbol: string): Promise<Quote> {
-    const data = await http<any>(`/v3/quotes/${encodeURIComponent(symbol)}/latest`, {});
-    const q = data?.results ?? data; // v3 returns {results: {...}}
+    type LatestQuote = { results?: { t?: number; bp?: number; ap?: number; p?: number; price?: number; last?: { price?: number } } };
+    const data = await http<LatestQuote>(`/v3/quotes/${encodeURIComponent(symbol)}/latest`, {});
+    const q = data?.results;
     return {
       symbol,
-      ts: q.t ? toISO(q.t) : new Date().toISOString(),
-      bid: q.bp ?? q.bidPrice,
-      ask: q.ap ?? q.askPrice,
-      last: q.p ?? q.price ?? q.last?.price,
+      ts: q?.t ? toISO(q.t) : new Date().toISOString(),
+      bid: q?.bp,
+      ask: q?.ap,
+      last: q?.p ?? q?.price ?? q?.last?.price,
     } as Quote;
   }
 
   async streamQuotes(symbols: string[], onMsg: (msg: Tick) => void): Promise<() => void> {
     // Polygon WebSocket: wss://socket.polygon.io/stocks
     if (!API_KEY) throw new Error("Missing POLYGON_API_KEY");
-    const url = "wss://socket.polygon.io/stocks";
-    const ws = new (globalThis as any).WebSocket(url);
+  const url = "wss://socket.polygon.io/stocks";
+  const WS: typeof WebSocket = (globalThis as any).WebSocket ?? WebSocket;
+  const ws = new WS(url);
 
     const subs = symbols.map((s) => `Q.${s}`);
 
-    const handleMessage = (ev: MessageEvent) => {
+  const handleMessage = (ev: MessageEvent<string>) => {
       try {
-        const arr = JSON.parse((ev as any).data as string);
-        for (const m of arr) {
+    const arr = JSON.parse(ev.data) as Array<Record<string, unknown>>;
+    for (const m of arr) {
+      const evType = (m.ev ?? (m as any).event) as string | undefined;
           if (m.ev === 'Q' || m.event === 'Q') {
             onMsg({
-              symbol: m.sym ?? m.symbol,
-              ts: toISO(m.t ?? m.timestamp ?? Date.now()),
-              bid: m.bp ?? m.bidPrice,
-              ask: m.ap ?? m.askPrice,
+        symbol: (m as any).sym ?? (m as any).symbol,
+        ts: toISO((m as any).t ?? (m as any).timestamp ?? Date.now()),
+        bid: (m as any).bp ?? (m as any).bidPrice,
+        ask: (m as any).ap ?? (m as any).askPrice,
               last: undefined,
             });
           }
@@ -115,11 +120,11 @@ export class PolygonProvider implements MarketDataProvider {
       ws.send(JSON.stringify({ action: 'auth', params: API_KEY }));
       ws.send(JSON.stringify({ action: 'subscribe', params: subs.join(',') }));
     });
-    ws.addEventListener('message', handleMessage as any);
+  ws.addEventListener('message', handleMessage as EventListener);
 
     const unsubscribe = () => {
       try {
-        ws.removeEventListener('message', handleMessage as any);
+  ws.removeEventListener('message', handleMessage as EventListener);
         if (ws.readyState === 1) {
           ws.send(JSON.stringify({ action: 'unsubscribe', params: subs.join(',') }));
           ws.close(1000, 'client-unsubscribe');

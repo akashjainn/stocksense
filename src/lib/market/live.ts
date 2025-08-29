@@ -9,9 +9,9 @@ export function connectSSE(symbols: string[], onQuote: (tick: Tick) => void) {
       onQuote(data);
     } catch {}
   };
-  es.addEventListener('quote', handler as any);
+  es.addEventListener('quote', handler as EventListener);
   return () => {
-    try { es.removeEventListener('quote', handler as any); } catch {}
+    try { es.removeEventListener('quote', handler as EventListener); } catch {}
     try { es.close(); } catch {}
   };
 }

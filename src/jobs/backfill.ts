@@ -23,9 +23,9 @@ async function main() {
   // Daily bars
   for (const s of symbols) {
     const bars = await provider.getDailyBars([s], from.toISOString().slice(0,10), to.toISOString().slice(0,10));
-    const inst: any = await prisma.$queryRawUnsafe(`SELECT symbol FROM Instrument WHERE symbol = ? LIMIT 1;`, s);
-    if (!Array.isArray(inst) || inst.length === 0) continue;
-    const symbolRow = inst[0] as { symbol: string };
+  const inst = await prisma.$queryRawUnsafe(`SELECT symbol FROM Instrument WHERE symbol = ? LIMIT 1;`, s) as unknown;
+  if (!Array.isArray(inst) || inst.length === 0) continue;
+  const symbolRow = inst[0] as { symbol: string };
     for (const b of bars) {
       await prisma.$executeRawUnsafe(
         `INSERT INTO DailyBar (id, instrumentSymbol, t, o, h, l, c, v, source)

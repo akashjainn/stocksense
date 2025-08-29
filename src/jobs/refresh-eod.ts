@@ -5,8 +5,9 @@ import { getMarketProvider } from "../lib/market/providers";
 async function main() {
   const provider = getMarketProvider();
   // Discover symbols from instruments table
-  const instruments = (await prisma.$queryRawUnsafe(`SELECT symbol FROM Instrument;`).catch(() => [])) as any[];
-  const symbols = instruments.map((i: any) => i.symbol);
+  const instrumentsUnknown = await prisma.$queryRawUnsafe(`SELECT symbol FROM Instrument;`).catch(() => []) as unknown;
+  const instruments = Array.isArray(instrumentsUnknown) ? instrumentsUnknown as Array<{ symbol: string }> : [];
+  const symbols = instruments.map((i) => i.symbol);
   if (symbols.length === 0) return;
 
   const today = new Date();
@@ -19,8 +20,8 @@ async function main() {
     const bars = await provider.getDailyBars([sym], from, to);
     barsBySym.set(sym, bars);
   }
-  for (const inst of instruments as any[]) {
-    const bars = barsBySym.get(inst.symbol as string) || [];
+  for (const inst of instruments) {
+    const bars = barsBySym.get(inst.symbol) || [];
     for (const b of bars) {
       await prisma.$executeRawUnsafe(
         `INSERT INTO DailyBar (id, instrumentSymbol, t, o, h, l, c, v, source)
