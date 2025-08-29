@@ -207,7 +207,8 @@ const StockSenseDashboard = () => {
   <div className={`min-h-screen transition-all duration-300 ${theme === 'dark' ? 'bg-gradient-to-br from-black via-gray-900 to-gray-800' : 'bg-gradient-to-br from-gray-50 via-white to-gray-100'}`}>
       <Sidebar />
       <Header />
-      <main className={`transition-all duration-300 pt-20 p-6 ${sidebarOpen ? 'ml-64' : 'ml-16'}`}>
+      <main className={`transition-all duration-300 pt-20 p-6 min-h-screen flex flex-col ${sidebarOpen ? 'ml-64' : 'ml-16'}`}>
+        <div className="flex-1 max-w-full">
         {activeView === 'dashboard' && (
           <div className="space-y-6">
             <div className={`p-6 rounded-xl ${theme === 'dark' ? 'bg-gradient-to-r from-lime-900/20 to-green-900/20 border border-lime-500/30' : 'bg-gradient-to-r from-lime-50 to-green-50 border border-lime-200/50'}`}>
@@ -225,9 +226,9 @@ const StockSenseDashboard = () => {
                 <div className="flex items-center justify-between mb-6">
                   <h2 className={`text-xl font-semibold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>Portfolio Performance</h2>
                   <div className="flex space-x-2">
-                    <button className="px-3 py-1 text-sm bg-lime-500 text-black rounded-lg hover:bg-lime-400 transition-colors">6M</button>
-                    <button className={`px-3 py-1 text-sm rounded-lg transition-colors ${theme === 'dark' ? 'text-gray-400 hover:text-white hover:bg-gray-700' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'}`}>1Y</button>
-                    <button className={`px-3 py-1 text-sm rounded-lg transition-colors ${theme === 'dark' ? 'text-gray-400 hover:text-lime-400 hover:bg-gray-700' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'}`}>All</button>
+                    <button className="px-3 py-1 text-sm rounded-lg transition-colors ${theme === 'dark' ? '' : ''} bg-lime-500 text-black hover:bg-lime-400">6M</button>
+                    <button className={`px-3 py-1 text-sm rounded-lg transition-colors ${theme === 'dark' ? 'text-gray-400 hover:text-lime-400 hover:bg-gray-700' : 'text-gray-600 hover:text-lime-600 hover:bg-gray-100'}`}>1Y</button>
+                    <button className={`px-3 py-1 text-sm rounded-lg transition-colors ${theme === 'dark' ? 'text-gray-400 hover:text-lime-400 hover:bg-gray-700' : 'text-gray-600 hover:text-lime-600 hover:bg-gray-100'}`}>All</button>
                   </div>
                 </div>
                 <div className="h-80">
@@ -273,8 +274,8 @@ const StockSenseDashboard = () => {
                 <div className="flex items-center justify-between mb-6">
                   <h2 className={`text-xl font-semibold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>Your Holdings</h2>
                   <div className="flex space-x-2">
-                    <button className={`px-4 py-2 rounded-lg border transition-colors hover:scale-105 ${theme === 'dark' ? 'border-gray-600 text-gray-300 hover:bg-gray-700' : 'border-gray-300 text-gray-700 hover:bg-gray-50'}`}><Filter size={16} className="inline mr-2" />Filter</button>
-                    <button className="px-4 py-2 bg-gradient-to-r from-lime-500 to-green-600 text-black rounded-lg hover:from-lime-400 hover:to-green-500 transition-all duration-200 hover:scale-105 shadow-lg shadow-lime-500/20"><Plus size={16} className="inline mr-2" />Add Position</button>
+                    <button className={`px-4 py-2 rounded-lg border transition-colors hover:scale-105 ${theme === 'dark' ? 'border-gray-600 text-gray-300 hover:bg-gray-700' : 'border-gray-400 text-gray-700 hover:bg-gray-50'}`}><Filter size={16} className="inline mr-2" />Filter</button>
+                    <button className={`px-4 py-2 rounded-lg transition-all duration-200 hover:scale-105 shadow-lg ${theme === 'dark' ? 'bg-gradient-to-r from-lime-500 to-green-600 text-black hover:from-lime-400 hover:to-green-500 shadow-lime-500/20' : 'bg-gradient-to-r from-lime-600 to-green-700 text-white hover:from-lime-700 hover:to-green-800 shadow-lime-600/20'}`}><Plus size={16} className="inline mr-2" />Add Position</button>
                   </div>
                 </div>
                 <div className="space-y-4">{portfolioData.positions.map((position, index) => (<PositionRow key={index} position={position} />))}</div>
@@ -282,15 +283,15 @@ const StockSenseDashboard = () => {
               <div className={`p-6 rounded-xl border ${theme === 'dark' ? 'bg-gradient-to-br from-gray-800 to-gray-800/80 border-gray-700' : 'bg-gradient-to-br from-white to-gray-50 border-gray-200'} shadow-lg`}>
                 <div className="flex items-center justify-between mb-6">
                   <h2 className={`text-xl font-semibold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>Recent Activity</h2>
-                  <button className={`text-lime-500 hover:text-lime-400 text-sm font-medium`}>View All</button>
+                  <button className={`hover:text-lime-400 text-sm font-medium ${theme === 'dark' ? 'text-lime-500' : 'text-lime-600'}`}>View All</button>
                 </div>
                 <div className="space-y-3">{portfolioData.recentTransactions.map((transaction) => (<TransactionRow key={transaction.id} transaction={transaction} />))}</div>
                 <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-                  <button className="w-full py-2 text-lime-500 hover:text-lime-400 text-sm font-medium hover:bg-lime-50 dark:hover:bg-lime-900/20 rounded-lg transition-colors">View Transaction History</button>
+                  <button className={`w-full py-2 text-sm font-medium rounded-lg transition-colors ${theme === 'dark' ? 'text-lime-500 hover:text-lime-400 hover:bg-lime-900/20' : 'text-lime-600 hover:text-lime-700 hover:bg-lime-50'}`}>View Transaction History</button>
                 </div>
               </div>
             </div>
-            <div className={`p-6 rounded-xl border ${theme === 'dark' ? 'bg-gradient-to-br from-gray-800 to-gray-800/80 border-gray-700' : 'bg-gradient-to-br from-white to-gray-50 border-gray-200'} shadow-lg`}>
+            <div className={`p-6 rounded-xl border ${theme === 'dark' ? 'bg-gradient-to-br from-gray-800 to-gray-800/80 border-gray-700' : 'bg-gradient-to-br from-white to-gray-50 border-gray-300'} shadow-lg`}>
               <div className="flex items-center justify-between mb-6">
                 <h2 className={`text-xl font-semibold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>Market Overview</h2>
                 <div className="flex items-center space-x-2">
@@ -315,11 +316,11 @@ const StockSenseDashboard = () => {
                 ))}
               </div>
             </div>
-            <div className={`p-6 rounded-xl border ${theme === 'dark' ? 'bg-gradient-to-br from-gray-800 to-gray-800/80 border-gray-700' : 'bg-gradient-to-br from-white to-gray-50 border-gray-200'} shadow-lg`}>
+            <div className={`p-6 rounded-xl border ${theme === 'dark' ? 'bg-gradient-to-br from-gray-800 to-gray-800/80 border-gray-700' : 'bg-gradient-to-br from-white to-gray-50 border-gray-300'} shadow-lg`}>
               <h2 className={`text-xl font-semibold mb-6 ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>Quick Actions</h2>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {[{ label: 'Buy Stock', icon: Plus, color: 'lime' },{ label: 'Sell Stock', icon: TrendingDown, color: 'red' },{ label: 'Import Data', icon: Upload, color: 'lime' },{ label: 'Export Portfolio', icon: Download, color: 'lime' }].map((action, idx) => (
-                  <button key={idx} className={`p-4 rounded-lg border transition-all duration-200 hover:scale-105 hover:shadow-lg group ${theme === 'dark' ? 'bg-gray-700 border-gray-600 hover:bg-gray-600' : 'bg-gray-50 border-gray-200 hover:bg-white'}`}>
+                {[{ label: 'Buy Stock', icon: Plus, color: 'lime' },{ label: 'Sell Stock', icon: TrendingDown, color: 'red' },{ label: 'Import Data', icon: Upload, color: 'lime' },{ label: 'Export Portfolio', icon: Download, color: 'lime' }].map((action, idx) => (
+                  <button key={idx} className={`p-4 rounded-lg border transition-all duration-200 hover:scale-105 hover:shadow-lg group ${theme === 'dark' ? 'bg-gray-700 border-gray-600 hover:bg-gray-600' : 'bg-gray-50 border-gray-300 hover:bg-white'}`}>
           <div className={`w-12 h-12 mx-auto mb-3 rounded-lg flex items-center justify-center transition-colors ${action.color === 'lime' ? 'bg-lime-100 text-lime-700 group-hover:bg-lime-200' : action.color === 'red' ? 'bg-red-100 text-red-600 group-hover:bg-red-200' : 'bg-lime-100 text-lime-700 group-hover:bg-lime-200'}`}>
                       <action.icon size={24} />
                     </div>
@@ -374,13 +375,14 @@ const StockSenseDashboard = () => {
           </div>
         )}
         {!['dashboard','portfolio'].includes(activeView) && (
-          <div className={`text-center py-20 ${theme === 'dark' ? 'bg-gradient-to-br from-gray-800 to-gray-800/80 border border-gray-700' : 'bg-gradient-to-br from-white to-gray-50 border border-gray-200'} rounded-xl shadow-lg`}>
+          <div className={`text-center py-20 ${theme === 'dark' ? 'bg-gradient-to-br from-gray-800 to-gray-800/80 border border-gray-700' : 'bg-gradient-to-br from-white to-gray-50 border border-gray-300'} rounded-xl shadow-lg`}>
             <div className={`text-6xl mb-4 ${theme === 'dark' ? 'text-gray-600' : 'text-gray-300'}`}>🚧</div>
             <div className={`text-2xl font-semibold mb-2 ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>{activeView.charAt(0).toUpperCase() + activeView.slice(1)} View</div>
             <div className={`${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'} mb-6`}>This section is under development. Coming soon with advanced features!</div>
-            <button className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-200 hover:scale-105 shadow-lg">Request Feature</button>
+            <button className={`px-6 py-3 rounded-lg transition-all duration-200 hover:scale-105 shadow-lg ${theme === 'dark' ? 'bg-gradient-to-r from-lime-500 to-green-600 text-black hover:from-lime-400 hover:to-green-500 shadow-lime-500/20' : 'bg-gradient-to-r from-lime-600 to-green-700 text-white hover:from-lime-700 hover:to-green-800 shadow-lime-600/20'}`}>Request Feature</button>
           </div>
         )}
+        </div>
       </main>
     </div>
   );
