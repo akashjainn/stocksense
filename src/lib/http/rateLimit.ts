@@ -9,12 +9,13 @@ export async function withBackoff<T>(fn: () => Promise<T>, opts: BackoffOptions 
   const max = opts.maxMs ?? 5000;
   const maxRetries = opts.maxRetries ?? 5;
   let attempt = 0;
-  // eslint-disable-next-line no-constant-condition
   while (true) {
     try {
       return await fn();
-    } catch (e: any) {
-      const status = typeof e?.status === "number" ? e.status : (e?.response?.status ?? undefined);
+    } catch (e: unknown) {
+      type MaybeHttpError = { status?: number; response?: { status?: number } };
+      const err = e as MaybeHttpError;
+      const status = typeof err?.status === "number" ? err.status : (err?.response?.status ?? undefined);
       if (status !== 429 && status !== 503) throw e;
       if (attempt >= maxRetries) throw e;
       const delay = Math.min(max, Math.round(base * Math.pow(2, attempt)));
