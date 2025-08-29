@@ -1,6 +1,14 @@
 import Alpaca from "@alpacahq/alpaca-trade-api";
 import type { Bar, Quote, Tick, CorpAction } from "../types";
 
+// Minimal shape emitted by Alpaca data_stream_v2 for stock quote events
+type AlpacaWsQuoteEvent = {
+  Symbol: string;
+  Timestamp: string | number | Date;
+  BidPrice?: number;
+  AskPrice?: number;
+};
+
 let alpaca: Alpaca;
 function getAlpacaInstance() {
   if (!alpaca) {
@@ -117,7 +125,7 @@ export const streamQuotes = async (
     console.error("[Alpaca WS] Error:", err);
   });
 
-  stream.onStockQuote((quote: any) => {
+  stream.onStockQuote((quote: AlpacaWsQuoteEvent) => {
     console.log(`[Alpaca WS] <== Quote: ${quote.Symbol}`);
     onMsg({
       symbol: quote.Symbol,
