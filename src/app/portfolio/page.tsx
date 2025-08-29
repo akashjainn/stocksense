@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+import { PortfolioChart } from "@/components/metrics/portfolio-chart";
 
 type Pt = { t: string; v: number };
 
@@ -23,16 +23,7 @@ export default function PortfolioPage() {
       <h1 className="text-2xl font-semibold">Portfolio</h1>
       <Card className="rounded-2xl">
         <CardContent className="p-5">
-          <div className="h-72 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={series} margin={{ left: 12, right: 12 }}>
-                <XAxis dataKey="t" hide tickLine={false} axisLine={false} />
-                <YAxis hide domain={["auto", "auto"]} />
-                <Tooltip formatter={(v: number | string) => `$${Number(v).toFixed(2)}`} labelFormatter={(l) => `Date: ${l}`} />
-                <Line type="monotone" dataKey="v" stroke="#16a34a" strokeWidth={2} dot={false} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
+          <PortfolioChart data={series} />
         </CardContent>
       </Card>
     </div>

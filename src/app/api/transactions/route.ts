@@ -41,6 +41,18 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET() {
-  const txns = await prisma.transaction.findMany({ orderBy: { tradeDate: "asc" } });
-  return Response.json({ data: txns });
+  const txns = await prisma.transaction.findMany({ orderBy: { tradeDate: "asc" }, include: { security: true } });
+  const data = txns.map((t) => ({
+    id: t.id,
+    accountId: t.accountId,
+    securityId: t.securityId,
+    symbol: t.security?.symbol,
+    type: t.type,
+    qty: t.qty != null ? Number(t.qty) : null,
+    price: t.price != null ? Number(t.price) : null,
+    fee: t.fee != null ? Number(t.fee) : null,
+    tradeDate: t.tradeDate,
+    notes: t.notes ?? undefined,
+  }));
+  return Response.json({ data });
 }

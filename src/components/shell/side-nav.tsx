@@ -4,6 +4,7 @@ import { cn } from "@/lib/ui/cn";
 const items = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/portfolio", label: "Portfolio" },
+  { href: "/portfolio/import", label: "Import" },
   { href: "/transactions", label: "Transactions" },
   { href: "/research", label: "Research" },
   { href: "/watchlists", label: "Watchlists" },
