@@ -14,6 +14,26 @@ APIs available:
 - GET /api/quotes?symbols=AAPL,MSFT
 - POST/GET /api/transactions
 
+## Real Market Data
+
+This repo can stream real-time quotes from Polygon via WebSockets and forward them to the browser with Server-Sent Events (SSE).
+
+Setup:
+- Install: npm i ws
+- .env:
+	- MARKET_DATA_PROVIDER=polygon
+	- POLYGON_API_KEY=YOUR_POLYGON_API_KEY
+
+Endpoints:
+- GET /api/stream?symbols=AAPL,MSFT — Emits `event: quote` lines containing JSON ticks.
+
+Notes:
+- Market data may be subject to licensing and display rules. Ensure your usage complies with your data vendor terms.
+- For delayed data, Polygon offers delayed endpoints; adapt provider as needed.
+
+Quick test:
+- curl -N "http://localhost:3000/api/stream?symbols=AAPL,MSFT" and observe streaming events.
+
 ## Getting Started
 
 First, run the development server:

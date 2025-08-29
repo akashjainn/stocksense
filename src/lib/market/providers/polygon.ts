@@ -109,17 +109,24 @@ export class PolygonProvider implements MarketDataProvider {
   async streamQuotes(symbols: string[], onMsg: (msg: Tick) => void): Promise<() => void> {
     // Polygon WebSocket: wss://socket.polygon.io/stocks
     if (!API_KEY) throw new Error("Missing POLYGON_API_KEY");
-  const url = "wss://socket.polygon.io/stocks";
-    const WS = ((globalThis as unknown as { WebSocket?: typeof WebSocket }).WebSocket) ?? WebSocket;
-    const ws = new WS(url);
+    const url = "wss://socket.polygon.io/stocks";
+    // Prefer ws package on the server to avoid edge/global WebSocket variability
+    let ws: WebSocket
+    try {
+      const mod = await import('ws') as typeof import('ws')
+      ws = new mod.WebSocket(url) as unknown as WebSocket
+    } catch {
+      const WS = ((globalThis as unknown as { WebSocket?: typeof WebSocket }).WebSocket) ?? WebSocket
+      ws = new WS(url)
+    }
 
     const subs = symbols.map((s) => `Q.${s}`);
 
-    const handleMessage = (ev: MessageEvent<string>) => {
+  const handleMessage = (ev: MessageEvent<string>) => {
       try {
-        const parsed: unknown = JSON.parse(ev.data);
+    const parsed: unknown = JSON.parse(ev.data as unknown as string);
         if (!Array.isArray(parsed)) return;
-        for (const m of parsed as Array<Record<string, unknown>>) {
+    for (const m of parsed as Array<Record<string, unknown>>) {
           const mm = m as PolygonWSQuote;
           const evType = mm.ev ?? mm.event;
           if (evType === 'Q') {
@@ -135,15 +142,15 @@ export class PolygonProvider implements MarketDataProvider {
       } catch {}
     };
 
-    ws.addEventListener('open', () => {
+  ws.addEventListener('open', () => {
       ws.send(JSON.stringify({ action: 'auth', params: API_KEY }));
       ws.send(JSON.stringify({ action: 'subscribe', params: subs.join(',') }));
     });
-  ws.addEventListener('message', handleMessage);
+  ws.addEventListener('message', handleMessage as unknown as (ev: MessageEvent) => void);
 
-    const unsubscribe = () => {
+  const unsubscribe = () => {
       try {
-  ws.removeEventListener('message', handleMessage);
+  ws.removeEventListener?.('message', handleMessage as unknown as (ev: MessageEvent) => void)
         if (ws.readyState === 1) {
           ws.send(JSON.stringify({ action: 'unsubscribe', params: subs.join(',') }));
           ws.close(1000, 'client-unsubscribe');

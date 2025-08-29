@@ -1,3 +1,6 @@
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 import { NextRequest } from "next/server";
 import { getMarketProvider } from "@/lib/market/providers";
 import type { Tick } from "@/lib/market/types";
