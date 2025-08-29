@@ -9,16 +9,23 @@ import { Toaster } from "@/components/ui/toaster";
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
+  display: 'swap',
 });
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+  display: 'swap',
 });
 
 export const metadata: Metadata = {
-  title: "StockSense",
-  description: "Portfolio tracking and analytics",
+  title: "StockSense - Professional Portfolio Analytics",
+  description: "Advanced portfolio tracking and analytics platform for professional investors",
+  viewport: "width=device-width, initial-scale=1",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#0a0a0a" }
+  ]
 };
 
 export default function RootLayout({
@@ -27,17 +34,27 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen bg-background text-foreground`}>
+    <html lang="en" className="h-full">
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased h-full overflow-hidden`}>
         <ReactQueryProvider>
-          <div className="grid grid-cols-[240px_1fr] grid-rows-[56px_1fr] min-h-screen">
-            <div className="row-span-2 border-r">
+          <div className="h-screen bg-neutral-50 dark:bg-neutral-950 flex">
+            {/* Sidebar */}
+            <div className="w-64 flex-shrink-0 hidden lg:block">
               <SideNav />
             </div>
-            <div className="col-start-2 border-b">
+            
+            {/* Main Content Area */}
+            <div className="flex-1 flex flex-col min-w-0">
+              {/* Top Navigation */}
               <TopNav />
+              
+              {/* Page Content */}
+              <main className="flex-1 overflow-auto bg-neutral-50 dark:bg-neutral-950">
+                <div className="p-6 h-full">
+                  {children}
+                </div>
+              </main>
             </div>
-            <main className="col-start-2 p-6">{children}</main>
           </div>
           <Toaster />
         </ReactQueryProvider>
