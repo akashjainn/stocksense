@@ -11,3 +11,6 @@ export function getProvider(): MarketDataProvider {
   instance = getMarketProvider();
   return instance;
 }
+
+// Back-compat: re-export the factory so existing imports keep working
+export { getMarketProvider };
