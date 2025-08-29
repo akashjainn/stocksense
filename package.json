@@ -15,6 +15,7 @@
     "jobs:eod": "tsx src/jobs/refresh-eod.ts"
   },
   "dependencies": {
+    "@alpacahq/alpaca-trade-api": "^3.1.3",
     "@auth/prisma-adapter": "^2.10.0",
     "@prisma/client": "^6.15.0",
     "@tanstack/react-query": "^5.85.5",
@@ -41,7 +42,6 @@
     "react-dom": "19.1.0",
     "recharts": "^3.1.2",
     "tailwind-merge": "^3.3.1",
-    "ws": "^8.18.3",
     "zod": "^4.1.5"
   },
   "devDependencies": {
@@ -56,7 +56,6 @@
     "@types/papaparse": "^5.3.16",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "@types/ws": "^8.18.1",
     "eslint": "^9",
     "eslint-config-next": "15.5.2",
     "jest": "^30.1.1",
