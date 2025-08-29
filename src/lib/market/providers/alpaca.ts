@@ -1,5 +1,4 @@
 import Alpaca from "@alpacahq/alpaca-trade-api";
-import { Bar as AlpacaSdkBar, Quote as AlpacaSdkQuote } from "@alpacahq/alpaca-trade-api/dist/resources/datav2/entityv2";
 import type { Bar, Quote, Tick, CorpAction } from "../types";
 
 let alpaca: Alpaca;
@@ -118,7 +117,7 @@ export const streamQuotes = async (
     console.error("[Alpaca WS] Error:", err);
   });
 
-  stream.onStockQuote((quote: AlpacaSdkQuote) => {
+  stream.onStockQuote((quote: any) => {
     console.log(`[Alpaca WS] <== Quote: ${quote.Symbol}`);
     onMsg({
       symbol: quote.Symbol,
