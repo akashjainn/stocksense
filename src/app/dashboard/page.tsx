@@ -1,19 +1,17 @@
+import { KpiCard } from "@/components/metrics/kpi-card";
+
 export default async function DashboardPage() {
+  const res = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL ?? ""}/api/portfolio`, { cache: "no-store" });
+  const data = await res.json().catch(() => ({ cash: 0, totalCost: 0, totalValue: 0 }));
+  const { cash, totalCost, totalValue } = data;
   return (
-    <main className="p-6 max-w-5xl mx-auto">
+    <main className="p-6 max-w-6xl mx-auto">
       <h1 className="text-2xl font-semibold">StockSense Dashboard</h1>
-      <p className="text-sm text-gray-500 mt-2">
-        This is your starting point. Next steps: positions, performance, charts.
-      </p>
-      <div className="mt-6 grid gap-4 grid-cols-1 sm:grid-cols-2">
-        <div className="rounded-lg border p-4">
-          <div className="text-xs uppercase text-gray-500">Total Value</div>
-          <div className="text-xl font-medium">$—</div>
-        </div>
-        <div className="rounded-lg border p-4">
-          <div className="text-xs uppercase text-gray-500">P/L</div>
-          <div className="text-xl font-medium">$—</div>
-        </div>
+      <div className="mt-6 grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+        <KpiCard label="Total Value" value={`$${Number(totalValue).toLocaleString()}`} />
+        <KpiCard label="Invested (Cost)" value={`$${Number(totalCost).toLocaleString()}`} />
+        <KpiCard label="Cash" value={`$${Number(cash).toLocaleString()}`} />
+        <KpiCard label="Day P&L" value="$—" />
       </div>
     </main>
   );

@@ -4,8 +4,6 @@ import { prisma } from "@/lib/db";
 import { buildProvider } from "./providers/prices";
 import dayjs from "dayjs";
 
-export const etlQueue = new Queue("prices-etl", { connection: getRedis() } as QueueOptions);
-
 export function startWorkers() {
   const provider = buildProvider();
   new Worker(
@@ -44,9 +42,16 @@ export function startWorkers() {
 export async function enqueueNightlyETL(symbols: string[]) {
   const endISO = dayjs().format("YYYY-MM-DD");
   const startISO = dayjs().subtract(2, "year").format("YYYY-MM-DD");
-  await etlQueue.add(
-    "nightly",
-    { symbols, startISO, endISO },
-    { repeat: { pattern: "0 3 * * *" } }
-  );
+  // Lazily create the queue only when needed to avoid connecting at import/build time
+  const queue = new Queue("prices-etl", { connection: getRedis() } as QueueOptions);
+  try {
+    await queue.add(
+      "nightly",
+      { symbols, startISO, endISO },
+      { repeat: { pattern: "0 3 * * *" } }
+    );
+  } finally {
+    // Close to prevent open handles in serverless/build environments
+    await queue.close();
+  }
 }
