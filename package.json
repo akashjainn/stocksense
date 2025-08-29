@@ -11,7 +11,9 @@
     "postinstall": "prisma generate",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev --name init",
-  "db:seed": "prisma db seed"
+  "db:seed": "prisma db seed",
+    "jobs:backfill": "tsx src/jobs/backfill.ts",
+    "jobs:eod": "tsx src/jobs/refresh-eod.ts"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.10.0",

@@ -120,3 +120,81 @@ model VerificationToken {
 
   @@unique([identifier, token])
 }
+
+// --- Market data models (provider-agnostic) ---
+
+model Instrument {
+  id         String   @id @default(cuid())
+  symbol     String   @unique
+  name       String?
+  exchange   String?
+  currency   String?  @default("USD")
+  figi       String?
+  cik        String?
+  cusip      String?
+  createdAt  DateTime @default(now())
+
+  dailyBars   DailyBar[]
+  minuteBars  MinuteBar[]
+  quotes      RealtimeQuote[]
+  actions     CorporateActionEvent[]
+}
+
+model DailyBar {
+  id           String    @id @default(cuid())
+  instrument   Instrument @relation(fields: [instrumentSymbol], references: [symbol])
+  instrumentSymbol String
+  t            DateTime
+  o            Decimal?
+  h            Decimal?
+  l            Decimal?
+  c            Decimal
+  v            Int?
+  source       String    @default("unknown")
+
+  @@unique([instrumentSymbol, t], name: "instrumentSymbol_t_day")
+  @@index([instrumentSymbol, t])
+}
+
+model MinuteBar {
+  id           String    @id @default(cuid())
+  instrument   Instrument @relation(fields: [instrumentSymbol], references: [symbol])
+  instrumentSymbol String
+  t            DateTime
+  o            Decimal?
+  h            Decimal?
+  l            Decimal?
+  c            Decimal
+  v            Int?
+  source       String    @default("unknown")
+
+  @@unique([instrumentSymbol, t], name: "instrumentSymbol_t_min")
+  @@index([instrumentSymbol, t])
+}
+
+model RealtimeQuote {
+  id           String    @id @default(cuid())
+  instrument   Instrument @relation(fields: [instrumentSymbol], references: [symbol])
+  instrumentSymbol String
+  ts           DateTime
+  bid          Decimal?
+  ask          Decimal?
+  last         Decimal?
+  source       String    @default("unknown")
+
+  @@index([instrumentSymbol, ts])
+}
+
+model CorporateActionEvent {
+  id           String     @id @default(cuid())
+  instrument   Instrument @relation(fields: [instrumentSymbol], references: [symbol])
+  instrumentSymbol String
+  date         DateTime
+  type         String     // SPLIT | DIVIDEND | OTHER
+  splitRatio   Decimal?
+  dividend     Decimal?
+  exDate       DateTime?
+  createdAt    DateTime   @default(now())
+
+  @@index([instrumentSymbol, date])
+}
