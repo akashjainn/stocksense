@@ -1,5 +1,19 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## Dev Setup (StockSense)
+
+1. Install: npm install
+2. Configure `.env`:
+	- DATABASE_URL=file:./dev.db (SQLite for dev)
+	- NEXTAUTH_SECRET, ALPHAVANTAGE_API_KEY, REDIS_URL, EDGAR_USER_AGENT
+3. DB: npm run prisma:migrate; npm run db:seed
+4. Run: npm run dev (http://localhost:3000)
+
+APIs available:
+- GET /api/health
+- GET /api/quotes?symbols=AAPL,MSFT
+- POST/GET /api/transactions
+
 ## Getting Started
 
 First, run the development server:
