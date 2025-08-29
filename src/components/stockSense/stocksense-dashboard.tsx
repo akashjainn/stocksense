@@ -66,10 +66,10 @@ const StockSenseDashboard = () => {
     name: pos.symbol,
     value: pos.value,
     percentage: ((pos.value / portfolioData.totalValue) * 100).toFixed(1),
-    color: ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#F97316'][index],
+    color: ['#84CC16', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#F97316'][index],
   }));
 
-  const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#F97316'];
+  const COLORS = ['#84CC16', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#F97316'];
 
   const toggleTheme = () => setTheme(theme === 'dark' ? 'light' : 'dark');
   const handleRefresh = async () => { setRefreshing(true); setTimeout(() => setRefreshing(false), 1000); };
@@ -81,14 +81,14 @@ const StockSenseDashboard = () => {
     }`}>
       <div className="flex items-center justify-between mb-4">
         <div className={`p-3 rounded-lg transition-colors ${
-          trend === 'up' ? 'bg-emerald-100 text-emerald-600 group-hover:bg-emerald-200' : trend === 'down' ? 'bg-red-100 text-red-600 group-hover:bg-red-200' : 'bg-blue-100 text-blue-600 group-hover:bg-blue-200'
+          trend === 'up' ? 'bg-lime-100 text-lime-700 group-hover:bg-lime-200' : trend === 'down' ? 'bg-red-100 text-red-600 group-hover:bg-red-200' : 'bg-lime-100 text-lime-700 group-hover:bg-lime-200'
         }`}>
           <Icon size={24} />
         </div>
         <div className="flex items-center space-x-1">
           {trend === 'up' ? <TrendingUp size={16} className="text-emerald-500" /> : trend === 'down' ? <TrendingDown size={16} className="text-red-500" /> : null}
           <span className={`text-sm font-semibold ${
-            trend === 'up' ? 'text-emerald-500' : trend === 'down' ? 'text-red-500' : 'text-gray-500'
+            trend === 'up' ? 'text-lime-500' : trend === 'down' ? 'text-red-500' : 'text-gray-500'
           }`}>
             {changePercent ? `${changePercent > 0 ? '+' : ''}${changePercent}%` : ''}
           </span>
@@ -97,7 +97,7 @@ const StockSenseDashboard = () => {
       <div className={`text-sm font-medium ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'} mb-1`}>{title}</div>
       <div className={`text-2xl font-bold ${theme === 'dark' ? 'text-white' : 'text-gray-900'} mb-1`}>{value}</div>
       {change && (
-        <div className={`text-sm font-medium ${trend === 'up' ? 'text-emerald-500' : 'text-red-500'}`}>
+        <div className={`text-sm font-medium ${trend === 'up' ? 'text-lime-500' : 'text-red-500'}`}>
           {trend === 'up' ? '+' : ''}{change} {subtitle}
         </div>
       )}
@@ -123,7 +123,7 @@ const StockSenseDashboard = () => {
         </div>
         <div className="text-right">
           <div className={`font-bold text-lg ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>${position.value.toLocaleString()}</div>
-          <div className={`text-sm font-medium ${totalGainLoss >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>{totalGainLoss >= 0 ? '+' : ''}${totalGainLoss.toFixed(2)} ({gainLossPercent.toFixed(1)}%)</div>
+          <div className={`text-sm font-medium ${totalGainLoss >= 0 ? 'text-lime-500' : 'text-red-500'}`}>{totalGainLoss >= 0 ? '+' : ''}${totalGainLoss.toFixed(2)} ({gainLossPercent.toFixed(1)}%)</div>
           <div className={`text-xs ${theme === 'dark' ? 'text-gray-500' : 'text-gray-500'}`}>Avg cost: ${position.avgCost.toFixed(2)}</div>
         </div>
         <div className={`text-right min-w-[80px] ${position.change > 0 ? 'text-emerald-500' : 'text-red-500'}`}>
@@ -148,16 +148,16 @@ const StockSenseDashboard = () => {
   );
 
   const Sidebar = () => (
-    <div className={`fixed left-0 top-0 h-full transition-all duration-300 z-40 ${sidebarOpen ? 'w-64' : 'w-16'} ${theme === 'dark' ? 'bg-gradient-to-b from-gray-900 to-gray-800 border-r border-gray-700' : 'bg-gradient-to-b from-white to-gray-50 border-r border-gray-200'} shadow-xl`}>
+  <div className={`fixed left-0 top-0 h-full transition-all duration-300 z-40 ${sidebarOpen ? 'w-64' : 'w-16'} ${theme === 'dark' ? 'bg-gradient-to-b from-black to-gray-900 border-r border-gray-700' : 'bg-gradient-to-b from-white to-gray-50 border-r border-gray-200'} shadow-xl`}>
       <div className="p-4">
         <div className="flex items-center space-x-3 mb-8">
-          <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
-            <BarChart3 className="text-white" size={22} />
+          <div className="w-10 h-10 bg-gradient-to-r from-lime-400 to-green-500 rounded-xl flex items-center justify-center shadow-lg shadow-lime-500/20">
+            <BarChart3 className="text-black" size={22} />
           </div>
           {sidebarOpen && (
             <div>
               <span className={`text-xl font-bold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>StockSense</span>
-              <div className="text-xs text-blue-500 font-medium">Enterprise</div>
+              <div className="text-xs text-lime-400 font-medium">Enterprise</div>
             </div>
           )}
         </div>
@@ -171,7 +171,7 @@ const StockSenseDashboard = () => {
             { id: 'calendar', label: 'Calendar', icon: Calendar },
           ] as Array<{ id: View; label: string; icon: IconType }>).map((item) => (
             <button key={item.id} onClick={() => setActiveView(item.id)} className={`w-full flex items-center space-x-3 p-3 rounded-lg transition-all duration-200 group ${
-              activeView === item.id ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg transform scale-105' : theme === 'dark' ? 'text-gray-300 hover:bg-gray-800 hover:text-white hover:scale-105' : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900 hover:scale-105'
+              activeView === item.id ? 'bg-gradient-to-r from-lime-400 to-green-500 text-black shadow-lg shadow-lime-500/20 transform scale-105' : theme === 'dark' ? 'text-gray-300 hover:bg-gray-800 hover:text-lime-400 hover:scale-105' : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900 hover:scale-105'
             }`}>
               <item.icon size={20} className="group-hover:animate-pulse" />
               {sidebarOpen && <span className="font-medium">{item.label}</span>}
@@ -183,13 +183,13 @@ const StockSenseDashboard = () => {
   );
 
   const Header = () => (
-    <header className={`fixed top-0 right-0 left-0 z-30 transition-all duration-300 ${sidebarOpen ? 'pl-64' : 'pl-16'} ${theme === 'dark' ? 'bg-gray-900/95 border-b border-gray-700' : 'bg-white/95 border-b border-gray-200'} backdrop-blur-sm shadow-sm`}>
+  <header className={`fixed top-0 right-0 left-0 z-30 transition-all duration-300 ${sidebarOpen ? 'pl-64' : 'pl-16'} ${theme === 'dark' ? 'bg-black/95 border-b border-gray-700' : 'bg-white/95 border-b border-gray-200'} backdrop-blur-sm shadow-sm`}>
       <div className="flex items-center justify-between p-4">
         <div className="flex items-center space-x-4">
           <button onClick={() => setSidebarOpen(!sidebarOpen)} className={`p-2 rounded-lg transition-all duration-200 hover:scale-110 ${theme === 'dark' ? 'hover:bg-gray-800' : 'hover:bg-gray-100'}`}>{sidebarOpen ? <X size={20} /> : <Menu size={20} />}</button>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-            <input type="text" placeholder="Search stocks, transactions..." className={`pl-10 pr-4 py-2 w-96 rounded-lg border transition-all duration-200 focus:scale-105 ${theme === 'dark' ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-400 focus:border-blue-500' : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-blue-500'} focus:outline-none focus:ring-2 focus:ring-blue-500/20`} />
+            <input type="text" placeholder="Search stocks, transactions..." className={`pl-10 pr-4 py-2 w-96 rounded-lg border transition-all duration-200 focus:scale-105 ${theme === 'dark' ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-400 focus:border-lime-500' : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-lime-500'} focus:outline-none focus:ring-2 focus:ring-lime-500/20`} />
           </div>
         </div>
         <div className="flex items-center space-x-2">
@@ -197,20 +197,20 @@ const StockSenseDashboard = () => {
           <button onClick={toggleTheme} className={`p-2 rounded-lg transition-all duration-200 hover:scale-110 ${theme === 'dark' ? 'hover:bg-gray-800' : 'hover:bg-gray-100'}`}>{theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}</button>
           <button className={`p-2 rounded-lg transition-all duration-200 hover:scale-110 ${theme === 'dark' ? 'hover:bg-gray-800' : 'hover:bg-gray-100'}`}><Bell size={20} /></button>
           <button className={`p-2 rounded-lg transition-all duration-200 hover:scale-110 ${theme === 'dark' ? 'hover:bg-gray-800' : 'hover:bg-gray-100'}`}><Settings size={20} /></button>
-          <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center shadow-lg hover:scale-110 transition-transform cursor-pointer"><User className="text-white" size={18} /></div>
+          <div className="w-10 h-10 bg-gradient-to-r from-lime-400 to-green-500 rounded-full flex items-center justify-center shadow-lg shadow-lime-500/20 hover:scale-110 transition-transform cursor-pointer"><User className="text-black" size={18} /></div>
         </div>
       </div>
     </header>
   );
 
   return (
-    <div className={`min-h-screen transition-all duration-300 ${theme === 'dark' ? 'bg-gradient-to-br from-gray-900 via-gray-900 to-gray-800' : 'bg-gradient-to-br from-gray-50 via-white to-gray-100'}`}>
+  <div className={`min-h-screen transition-all duration-300 ${theme === 'dark' ? 'bg-gradient-to-br from-black via-gray-900 to-gray-800' : 'bg-gradient-to-br from-gray-50 via-white to-gray-100'}`}>
       <Sidebar />
       <Header />
       <main className={`transition-all duration-300 pt-20 p-6 ${sidebarOpen ? 'ml-64' : 'ml-16'}`}>
         {activeView === 'dashboard' && (
           <div className="space-y-6">
-            <div className={`p-6 rounded-xl ${theme === 'dark' ? 'bg-gradient-to-r from-blue-900/50 to-purple-900/50 border border-blue-800/30' : 'bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200/50'}`}>
+            <div className={`p-6 rounded-xl ${theme === 'dark' ? 'bg-gradient-to-r from-lime-900/20 to-green-900/20 border border-lime-500/30' : 'bg-gradient-to-r from-lime-50 to-green-50 border border-lime-200/50'}`}>
               <h1 className={`text-2xl font-bold ${theme === 'dark' ? 'text-white' : 'text-gray-900'} mb-2`}>Good morning! Welcome back to your portfolio</h1>
               <p className={`${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>Here&apos;s what&apos;s happening with your investments today</p>
             </div>
@@ -225,9 +225,9 @@ const StockSenseDashboard = () => {
                 <div className="flex items-center justify-between mb-6">
                   <h2 className={`text-xl font-semibold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>Portfolio Performance</h2>
                   <div className="flex space-x-2">
-                    <button className="px-3 py-1 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">6M</button>
+                    <button className="px-3 py-1 text-sm bg-lime-500 text-black rounded-lg hover:bg-lime-400 transition-colors">6M</button>
                     <button className={`px-3 py-1 text-sm rounded-lg transition-colors ${theme === 'dark' ? 'text-gray-400 hover:text-white hover:bg-gray-700' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'}`}>1Y</button>
-                    <button className={`px-3 py-1 text-sm rounded-lg transition-colors ${theme === 'dark' ? 'text-gray-400 hover:text-white hover:bg-gray-700' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'}`}>All</button>
+                    <button className={`px-3 py-1 text-sm rounded-lg transition-colors ${theme === 'dark' ? 'text-gray-400 hover:text-lime-400 hover:bg-gray-700' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'}`}>All</button>
                   </div>
                 </div>
                 <div className="h-80">
@@ -237,7 +237,7 @@ const StockSenseDashboard = () => {
                       <XAxis dataKey="date" stroke={theme === 'dark' ? '#9CA3AF' : '#6B7280'} />
                       <YAxis stroke={theme === 'dark' ? '#9CA3AF' : '#6B7280'} />
                       <Tooltip contentStyle={{ backgroundColor: theme === 'dark' ? '#1F2937' : '#FFFFFF', border: `1px solid ${theme === 'dark' ? '#374151' : '#E5E7EB'}`, borderRadius: '8px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)' }} />
-                      <Line type="monotone" dataKey="value" stroke="#3B82F6" strokeWidth={3} dot={{ fill: '#3B82F6', strokeWidth: 2, r: 4 }} activeDot={{ r: 6, stroke: '#3B82F6', strokeWidth: 2 }} />
+                      <Line type="monotone" dataKey="value" stroke="#84CC16" strokeWidth={3} dot={{ fill: '#84CC16', strokeWidth: 2, r: 4 }} activeDot={{ r: 6, stroke: '#84CC16', strokeWidth: 2 }} />
                       <Line type="monotone" dataKey="benchmark" stroke="#94A3B8" strokeWidth={2} strokeDasharray="5 5" dot={false} />
                     </LineChart>
                   </ResponsiveContainer>
@@ -274,7 +274,7 @@ const StockSenseDashboard = () => {
                   <h2 className={`text-xl font-semibold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>Your Holdings</h2>
                   <div className="flex space-x-2">
                     <button className={`px-4 py-2 rounded-lg border transition-colors hover:scale-105 ${theme === 'dark' ? 'border-gray-600 text-gray-300 hover:bg-gray-700' : 'border-gray-300 text-gray-700 hover:bg-gray-50'}`}><Filter size={16} className="inline mr-2" />Filter</button>
-                    <button className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-200 hover:scale-105 shadow-lg"><Plus size={16} className="inline mr-2" />Add Position</button>
+                    <button className="px-4 py-2 bg-gradient-to-r from-lime-500 to-green-600 text-black rounded-lg hover:from-lime-400 hover:to-green-500 transition-all duration-200 hover:scale-105 shadow-lg shadow-lime-500/20"><Plus size={16} className="inline mr-2" />Add Position</button>
                   </div>
                 </div>
                 <div className="space-y-4">{portfolioData.positions.map((position, index) => (<PositionRow key={index} position={position} />))}</div>
@@ -282,11 +282,11 @@ const StockSenseDashboard = () => {
               <div className={`p-6 rounded-xl border ${theme === 'dark' ? 'bg-gradient-to-br from-gray-800 to-gray-800/80 border-gray-700' : 'bg-gradient-to-br from-white to-gray-50 border-gray-200'} shadow-lg`}>
                 <div className="flex items-center justify-between mb-6">
                   <h2 className={`text-xl font-semibold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>Recent Activity</h2>
-                  <button className={`text-blue-500 hover:text-blue-600 text-sm font-medium`}>View All</button>
+                  <button className={`text-lime-500 hover:text-lime-400 text-sm font-medium`}>View All</button>
                 </div>
                 <div className="space-y-3">{portfolioData.recentTransactions.map((transaction) => (<TransactionRow key={transaction.id} transaction={transaction} />))}</div>
                 <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-                  <button className="w-full py-2 text-blue-500 hover:text-blue-600 text-sm font-medium hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors">View Transaction History</button>
+                  <button className="w-full py-2 text-lime-500 hover:text-lime-400 text-sm font-medium hover:bg-lime-50 dark:hover:bg-lime-900/20 rounded-lg transition-colors">View Transaction History</button>
                 </div>
               </div>
             </div>
@@ -295,7 +295,7 @@ const StockSenseDashboard = () => {
                 <h2 className={`text-xl font-semibold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>Market Overview</h2>
                 <div className="flex items-center space-x-2">
                   <div className="flex items-center space-x-1">
-                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                    <div className="w-2 h-2 bg-lime-500 rounded-full animate-pulse"></div>
                     <span className={`text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>Market Open</span>
                   </div>
                 </div>
@@ -310,7 +310,7 @@ const StockSenseDashboard = () => {
                   <div key={idx} className={`p-4 rounded-lg border ${theme === 'dark' ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'}`}>
                     <div className={`text-sm font-medium ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'} mb-1`}>{index.name}</div>
                     <div className={`text-lg font-semibold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>{index.value}</div>
-                    <div className={`text-sm font-medium ${index.trend === 'up' ? 'text-emerald-500' : 'text-red-500'}`}>{index.change}</div>
+                    <div className={`text-sm font-medium ${index.trend === 'up' ? 'text-lime-500' : 'text-red-500'}`}>{index.change}</div>
                   </div>
                 ))}
               </div>
@@ -318,9 +318,9 @@ const StockSenseDashboard = () => {
             <div className={`p-6 rounded-xl border ${theme === 'dark' ? 'bg-gradient-to-br from-gray-800 to-gray-800/80 border-gray-700' : 'bg-gradient-to-br from-white to-gray-50 border-gray-200'} shadow-lg`}>
               <h2 className={`text-xl font-semibold mb-6 ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>Quick Actions</h2>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {[{ label: 'Buy Stock', icon: Plus, color: 'emerald' },{ label: 'Sell Stock', icon: TrendingDown, color: 'red' },{ label: 'Import Data', icon: Upload, color: 'blue' },{ label: 'Export Portfolio', icon: Download, color: 'purple' }].map((action, idx) => (
+        {[{ label: 'Buy Stock', icon: Plus, color: 'lime' },{ label: 'Sell Stock', icon: TrendingDown, color: 'red' },{ label: 'Import Data', icon: Upload, color: 'lime' },{ label: 'Export Portfolio', icon: Download, color: 'lime' }].map((action, idx) => (
                   <button key={idx} className={`p-4 rounded-lg border transition-all duration-200 hover:scale-105 hover:shadow-lg group ${theme === 'dark' ? 'bg-gray-700 border-gray-600 hover:bg-gray-600' : 'bg-gray-50 border-gray-200 hover:bg-white'}`}>
-                    <div className={`w-12 h-12 mx-auto mb-3 rounded-lg flex items-center justify-center transition-colors ${action.color === 'emerald' ? 'bg-emerald-100 text-emerald-600 group-hover:bg-emerald-200' : action.color === 'red' ? 'bg-red-100 text-red-600 group-hover:bg-red-200' : action.color === 'blue' ? 'bg-blue-100 text-blue-600 group-hover:bg-blue-200' : 'bg-purple-100 text-purple-600 group-hover:bg-purple-200'}`}>
+          <div className={`w-12 h-12 mx-auto mb-3 rounded-lg flex items-center justify-center transition-colors ${action.color === 'lime' ? 'bg-lime-100 text-lime-700 group-hover:bg-lime-200' : action.color === 'red' ? 'bg-red-100 text-red-600 group-hover:bg-red-200' : 'bg-lime-100 text-lime-700 group-hover:bg-lime-200'}`}>
                       <action.icon size={24} />
                     </div>
                     <div className={`text-sm font-medium ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>{action.label}</div>
@@ -363,7 +363,7 @@ const StockSenseDashboard = () => {
                         <XAxis dataKey="sector" stroke={theme === 'dark' ? '#9CA3AF' : '#6B7280'} />
                         <YAxis stroke={theme === 'dark' ? '#9CA3AF' : '#6B7280'} />
                         <Tooltip contentStyle={{ backgroundColor: theme === 'dark' ? '#1F2937' : '#FFFFFF', border: `1px solid ${theme === 'dark' ? '#374151' : '#E5E7EB'}`, borderRadius: '8px' }} />
-                        <Bar dataKey="allocation" fill="#3B82F6" name="Current" />
+                        <Bar dataKey="allocation" fill="#84CC16" name="Current" />
                         <Bar dataKey="target" fill="#94A3B8" name="Target" />
                       </BarChart>
                     </ResponsiveContainer>
