@@ -365,7 +365,7 @@ const StockSenseDashboard = () => {
                         }} 
                         wrapperStyle={{ color: '#0a0a0a' }}
                         labelFormatter={(label) => `Period: ${label}`}
-                        formatter={(value: any, name: string) => [
+                        formatter={(value: number | string, name: string) => [
                           `$${value.toLocaleString()}`,
                           name === 'value' ? 'Portfolio' : 'Benchmark'
                         ]}
@@ -424,7 +424,7 @@ const StockSenseDashboard = () => {
                         border: '1px solid #e5e5e5', 
                         borderRadius: '8px' 
                       }}
-                      formatter={(value: any, name: string) => [
+                      formatter={(value: number | string, name: string) => [
                         `$${value.toLocaleString()}`,
                         name
                       ]}
