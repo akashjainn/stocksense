@@ -1,10 +1,10 @@
-import { Queue, Worker, Job } from "bullmq";
+import { Queue, Worker, Job, QueueOptions, WorkerOptions } from "bullmq";
 import { redis } from "./redis";
 import { prisma } from "@/lib/db";
 import { buildProvider } from "./providers/prices";
 import dayjs from "dayjs";
 
-export const etlQueue = new Queue("prices-etl", { connection: redis as any });
+export const etlQueue = new Queue("prices-etl", { connection: redis } as QueueOptions);
 
 export function startWorkers() {
   const provider = buildProvider();
@@ -36,8 +36,8 @@ export function startWorkers() {
           });
         }
       }
-    },
-    { connection: redis as any }
+  },
+  { connection: redis } as WorkerOptions
   );
 }
 

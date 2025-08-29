@@ -1,3 +1,4 @@
+import { AlphaVantageProvider } from "./alphaVantage";
 export type Quote = { symbol: string; price: number; ts: number };
 export type Candle = { t: string; o?: number; h?: number; l?: number; c: number; v?: number };
 
@@ -6,7 +7,4 @@ export interface PriceProvider {
   getDailyCandles(symbol: string, startISO: string, endISO: string): Promise<Candle[]>;
 }
 
-export const buildProvider = () => {
-  const provider = new (require("./alphaVantage").AlphaVantageProvider)();
-  return provider as PriceProvider;
-};
+export const buildProvider = (): PriceProvider => new AlphaVantageProvider();

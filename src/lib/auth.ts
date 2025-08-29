@@ -1,11 +1,12 @@
 import { PrismaAdapter } from "@auth/prisma-adapter";
-import type { NextAuthOptions } from "next-auth";
+import type { NextAuthOptions, Session } from "next-auth";
+import type { Adapter } from "next-auth/adapters";
 import EmailProvider from "next-auth/providers/email";
 import Google from "next-auth/providers/google";
 import { prisma } from "@/lib/db";
 
 export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma) as any,
+  adapter: PrismaAdapter(prisma) as Adapter,
   session: { strategy: "database" },
   providers: [
     EmailProvider({
@@ -37,8 +38,9 @@ export const authOptions: NextAuthOptions = {
   pages: {},
   callbacks: {
     session: async ({ session, user }) => {
-      if (session && (session as any).user && user?.id) {
-        (session as any).user.id = user.id;
+      // augment session.user with id when available
+      if (session.user && user?.id) {
+        (session.user as Session["user"] & { id?: string }).id = user.id;
       }
       return session;
     },
