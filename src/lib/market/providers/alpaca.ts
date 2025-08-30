@@ -9,6 +9,14 @@ type AlpacaWsQuoteEvent = {
   AskPrice?: number;
 };
 
+// Minimal snapshot shape used in fallbacks
+type AlpacaSnapshot = {
+  LatestTrade?: { Price?: number; Size?: number; Timestamp?: number | string | Date };
+  LatestQuote?: { BidPrice?: number; AskPrice?: number; Timestamp?: number | string | Date };
+  MinuteBar?: { Timestamp?: number | string | Date; OpenPrice?: number; HighPrice?: number; LowPrice?: number; ClosePrice?: number; Volume?: number };
+  DailyBar?: { Timestamp?: number | string | Date; OpenPrice?: number; HighPrice?: number; LowPrice?: number; ClosePrice?: number; Volume?: number };
+};
+
 let alpaca: Alpaca;
 function getAlpacaInstance() {
   if (!alpaca) {
@@ -100,14 +108,23 @@ export async function getQuote(symbol: string): Promise<Quote> {
     console.warn(`Primary latestQuote failed for ${symbol}, attempting snapshot fallback...`, error);
     // Fallback: try snapshots API to populate a quote-like result
     try {
-      const snap = await alpaca.getSnapshots([symbol]);
-      // SDK may return Map or Object; normalize
-      const entry = snap instanceof Map ? snap.get(symbol) : (snap as any)[symbol];
+      const res = (await alpaca.getSnapshots([symbol])) as
+        | Map<string, AlpacaSnapshot>
+        | Record<string, AlpacaSnapshot>
+        | AlpacaSnapshot[];
+      let entry: AlpacaSnapshot | undefined;
+      if (res instanceof Map) {
+        entry = res.get(symbol);
+      } else if (Array.isArray(res)) {
+        entry = res[0];
+      } else {
+        entry = (res as Record<string, AlpacaSnapshot>)[symbol];
+      }
       if (entry) {
         const ts = entry?.LatestQuote?.Timestamp ?? entry?.LatestTrade?.Timestamp ?? entry?.MinuteBar?.Timestamp ?? Date.now();
-        const bid = entry?.LatestQuote?.BidPrice as number | undefined;
-        const ask = entry?.LatestQuote?.AskPrice as number | undefined;
-        const last = entry?.LatestTrade?.Price as number | undefined;
+        const bid = entry?.LatestQuote?.BidPrice;
+        const ask = entry?.LatestQuote?.AskPrice;
+        const last = entry?.LatestTrade?.Price;
         return {
           symbol,
           ts: new Date(ts).toISOString(),
@@ -144,12 +161,14 @@ export const streamQuotes = async (
     console.log("[Alpaca WS] ==> Connection open");
     // Subscribe to both quotes (bid/ask) and trades (last) for richer updates
     try {
-      if (typeof (stream as any).subscribe === 'function') {
-        (stream as any).subscribe({ quotes: symbols, trades: symbols });
+      type HasSubscribe = { subscribe: (args: { quotes?: string[]; trades?: string[] }) => void };
+      if (typeof (stream as unknown as HasSubscribe).subscribe === 'function') {
+        (stream as unknown as HasSubscribe).subscribe({ quotes: symbols, trades: symbols });
       } else {
         stream.subscribeForQuotes(symbols);
-        if (typeof (stream as any).subscribeForTrades === 'function') {
-          (stream as any).subscribeForTrades(symbols);
+        type HasTradeSubscribe = { subscribeForTrades: (syms: string[]) => void };
+        if (typeof (stream as unknown as HasTradeSubscribe).subscribeForTrades === 'function') {
+          (stream as unknown as HasTradeSubscribe).subscribeForTrades(symbols);
         }
       }
     } catch (e) {
@@ -174,7 +193,7 @@ export const streamQuotes = async (
   });
 
   // Also propagate last price updates via trade events when available
-  (stream as any).onStockTrade?.((trade: { Symbol: string; Price: number; Timestamp: string | number | Date }) => {
+  (stream as unknown as { onStockTrade?: (cb: (t: { Symbol: string; Price: number; Timestamp: string | number | Date }) => void) => void }).onStockTrade?.((trade) => {
     try {
       onMsg({
         symbol: trade.Symbol,
@@ -193,11 +212,12 @@ export const streamQuotes = async (
   return () => {
     console.log("[Alpaca Stream] Unsubscribing...");
     try {
-      if (typeof (stream as any).unsubscribe === 'function') {
-        (stream as any).unsubscribe({ quotes: symbols, trades: symbols });
+      type HasUnsubscribe = { unsubscribe: (args: { quotes?: string[]; trades?: string[] }) => void };
+      if (typeof (stream as unknown as HasUnsubscribe).unsubscribe === 'function') {
+        (stream as unknown as HasUnsubscribe).unsubscribe({ quotes: symbols, trades: symbols });
       } else {
         stream.unsubscribeFromQuotes(symbols);
-        (stream as any).unsubscribeFromTrades?.(symbols);
+        (stream as unknown as { unsubscribeFromTrades?: (syms: string[]) => void }).unsubscribeFromTrades?.(symbols);
       }
     } catch {}
     stream.disconnect();

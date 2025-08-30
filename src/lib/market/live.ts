@@ -11,11 +11,9 @@ export function connectSSE(symbols: string[], onQuote: (tick: Tick) => void) {
   };
   es.addEventListener('quote', handler as EventListener);
   // Basic error/logging hooks to help with diagnostics
-  es.addEventListener('error', ((e: MessageEvent) => {
-    try {
-      const d = (e as any).data ? JSON.parse((e as any).data) : null;
-      console.warn('[SSE] error', d ?? e);
-    } catch { console.warn('[SSE] error'); }
+  es.addEventListener('error', ((e: Event) => {
+    // DOM Event for error doesn't carry payload in standard EventSource
+    console.warn('[SSE] error event', e.type);
   }) as EventListener);
   es.addEventListener('message', handler as EventListener);
   return () => {
