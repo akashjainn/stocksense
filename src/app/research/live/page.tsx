@@ -1,25 +1,46 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
+import { connectSSE } from "@/lib/market/live";
 
-type Quote = { price: number; open?: number };
+type LiveQuote = { bid?: number; ask?: number; last?: number; ts?: string; open?: number };
 
 export default function LiveMarketsPage() {
   const [symbols] = useState(["AAPL", "MSFT", "SPY"]);
-  const [data, setData] = useState<Record<string, Quote>>({});
+  const [data, setData] = useState<Record<string, LiveQuote>>({});
 
+  // Open SSE stream for realtime updates and seed with initial snapshots handled by the API
   useEffect(() => {
-    let active = true;
-    async function poll() {
+    const unsub = connectSSE(symbols, (tick) => {
+      setData((prev) => ({
+        ...prev,
+        [tick.symbol]: { ...prev[tick.symbol], bid: tick.bid, ask: tick.ask, last: tick.last, ts: tick.ts },
+      }));
+    });
+    return () => { try { unsub() } catch {} };
+  }, [symbols]);
+
+  // Fallback: also fetch opening price for change calc once per minute
+  useEffect(() => {
+    let live = true;
+    async function seed() {
       try {
         const res = await fetch(`/api/quotes?symbols=${symbols.join(",")}`, { cache: "no-store" });
         const j = await res.json();
-        if (active) setData(j.data || {});
+        const arr: Array<{ symbol: string; o?: number; c?: number }>= j?.data || [];
+        if (!live) return;
+        setData((prev) => {
+          const next = { ...prev } as Record<string, LiveQuote>;
+          for (const it of arr) {
+            next[it.symbol] = { ...(next[it.symbol] || {}), open: it.o, last: next[it.symbol]?.last ?? it.c };
+          }
+          return next;
+        });
       } catch {}
     }
-    poll();
-    const id = setInterval(poll, 30000);
-    return () => { active = false; clearInterval(id); };
+    seed();
+    const id = setInterval(seed, 60000);
+    return () => { live = false; clearInterval(id); };
   }, [symbols]);
 
   return (
@@ -27,9 +48,9 @@ export default function LiveMarketsPage() {
       <h1 className="text-2xl font-semibold">Live Market Data</h1>
       <div className="grid gap-4 grid-cols-1 md:grid-cols-3">
         {symbols.map((s) => {
-          const q = data[s];
-          const price = q?.price;
-          const open = q?.open;
+          const q = data[s] || {};
+          const price = q.last ?? q.bid ?? q.ask;
+          const open = q.open;
           const pct = price != null && open ? ((price - open) / open) * 100 : null;
           return (
             <Card key={s} className="rounded-2xl">
@@ -38,6 +59,7 @@ export default function LiveMarketsPage() {
                   <h2 className="text-lg font-medium">{s}</h2>
                   <span className="text-2xl font-semibold">{price != null ? `$${price.toFixed(2)}` : "—"}</span>
                 </div>
+                <div className="mt-1 text-xs text-neutral-500">{q.bid != null ? `Bid ${q.bid.toFixed(2)}` : "Bid —"} · {q.ask != null ? `Ask ${q.ask.toFixed(2)}` : "Ask —"}</div>
                 <div className={`mt-2 text-sm ${pct != null ? (pct >= 0 ? "text-emerald-600" : "text-red-600") : "text-muted-foreground"}`}>
                   {pct != null ? `${pct.toFixed(2)}%` : "No change"}
                 </div>

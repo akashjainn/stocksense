@@ -12,8 +12,11 @@ type AlpacaWsQuoteEvent = {
 let alpaca: Alpaca;
 function getAlpacaInstance() {
   if (!alpaca) {
-    const keyId = process.env.ALPACA_API_KEY_ID;
-    const secretKey = process.env.ALPACA_API_SECRET_KEY;
+    // Support both ALPACA_* and APCA_* env var names
+    const keyId =
+      process.env.ALPACA_API_KEY_ID || process.env.APCA_API_KEY_ID;
+    const secretKey =
+      process.env.ALPACA_API_SECRET_KEY || process.env.APCA_API_SECRET_KEY;
 
     if (!keyId || !secretKey) {
       throw new Error(
@@ -24,7 +27,8 @@ function getAlpacaInstance() {
     alpaca = new Alpaca({
       keyId: keyId,
       secretKey: secretKey,
-      paper: true, // Or false for live trading
+      // default to paper unless explicitly set to 'false'
+      paper: (process.env.ALPACA_PAPER ?? process.env.APCA_PAPER ?? 'true') !== 'false',
     });
   }
   return alpaca;
