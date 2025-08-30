@@ -17,6 +17,7 @@ import {
 const items = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/portfolio", label: "Portfolio", icon: Briefcase },
+  { href: "/portfolio/compare", label: "Compare", icon: TrendingUp },
   { href: "/portfolio/import", label: "Import", icon: Upload },
   { href: "/transactions", label: "Transactions", icon: ArrowLeftRight },
   { href: "/research", label: "Research", icon: TrendingUp },

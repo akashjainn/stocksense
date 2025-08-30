@@ -1,9 +1,15 @@
 import { prisma } from "@/lib/db";
 import { buildProvider } from "@/lib/providers/prices";
 import dayjs from "dayjs";
+import { NextRequest } from "next/server";
 
-export async function GET() {
-  const txns = await prisma.transaction.findMany({ orderBy: { tradeDate: "asc" }, include: { security: true } });
+export async function GET(req: NextRequest) {
+  const accountId = req.nextUrl.searchParams.get("accountId") || undefined;
+  const txns = await prisma.transaction.findMany({
+    where: accountId ? { accountId } : undefined,
+    orderBy: { tradeDate: "asc" },
+    include: { security: true },
+  });
   const holdings = new Map<string, { symbol: string; qty: number; cost: number }>();
   let cash = 0;
   for (const t of txns) {
