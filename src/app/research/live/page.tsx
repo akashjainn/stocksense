@@ -5,9 +5,34 @@ import { connectSSE } from "@/lib/market/live";
 
 type LiveQuote = { bid?: number; ask?: number; last?: number; ts?: string; open?: number };
 
+const STORAGE_KEY = "liveQuotes";
+const DEFAULT_SYMBOLS = ["AAPL", "MSFT", "SPY"] as const;
+
 export default function LiveMarketsPage() {
-  const [symbols] = useState(["AAPL", "MSFT", "SPY"]);
-  const [data, setData] = useState<Record<string, LiveQuote>>({});
+  // Use a stable symbols list (doesn't change across renders)
+  const symbols = DEFAULT_SYMBOLS as unknown as string[];
+
+  // Initialize state from sessionStorage to avoid blank values on return navigation
+  const [data, setData] = useState<Record<string, LiveQuote>>(() => {
+    if (typeof window === "undefined") return {};
+    try {
+      const raw = sessionStorage.getItem(STORAGE_KEY);
+      if (!raw) return {};
+      const parsed = JSON.parse(raw) as Record<string, LiveQuote>;
+      const next: Record<string, LiveQuote> = {};
+      for (const s of symbols) if (parsed[s]) next[s] = parsed[s];
+      return next;
+    } catch {
+      return {};
+    }
+  });
+
+  // Persist quotes to sessionStorage on every update
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    } catch {}
+  }, [data]);
 
   // Open SSE stream for realtime updates and seed with initial snapshots handled by the API
   useEffect(() => {
@@ -17,7 +42,11 @@ export default function LiveMarketsPage() {
         [tick.symbol]: { ...prev[tick.symbol], bid: tick.bid, ask: tick.ask, last: tick.last, ts: tick.ts },
       }));
     });
-    return () => { try { unsub() } catch {} };
+    return () => {
+      try {
+        unsub();
+      } catch {}
+    };
   }, [symbols]);
 
   // Fallback: also fetch opening price for change calc once per minute
@@ -27,7 +56,7 @@ export default function LiveMarketsPage() {
       try {
         const res = await fetch(`/api/quotes?symbols=${symbols.join(",")}`, { cache: "no-store" });
         const j = await res.json();
-        const arr: Array<{ symbol: string; o?: number; c?: number }>= j?.data || [];
+        const arr: Array<{ symbol: string; o?: number; c?: number }> = j?.data || [];
         if (!live) return;
         setData((prev) => {
           const next = { ...prev } as Record<string, LiveQuote>;
@@ -40,7 +69,10 @@ export default function LiveMarketsPage() {
     }
     seed();
     const id = setInterval(seed, 60000);
-    return () => { live = false; clearInterval(id); };
+    return () => {
+      live = false;
+      clearInterval(id);
+    };
   }, [symbols]);
 
   return (
