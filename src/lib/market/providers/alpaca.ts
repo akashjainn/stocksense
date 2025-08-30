@@ -97,8 +97,29 @@ export async function getQuote(symbol: string): Promise<Quote> {
       ask: quote.AskPrice,
     };
   } catch (error) {
-    console.error(`Error fetching quote for ${symbol} from Alpaca:`, error);
-    // Surface a consistent error up the stack
+    console.warn(`Primary latestQuote failed for ${symbol}, attempting snapshot fallback...`, error);
+    // Fallback: try snapshots API to populate a quote-like result
+    try {
+      const snap = await alpaca.getSnapshots([symbol]);
+      // SDK may return Map or Object; normalize
+      const entry = snap instanceof Map ? snap.get(symbol) : (snap as any)[symbol];
+      if (entry) {
+        const ts = entry?.LatestQuote?.Timestamp ?? entry?.LatestTrade?.Timestamp ?? entry?.MinuteBar?.Timestamp ?? Date.now();
+        const bid = entry?.LatestQuote?.BidPrice as number | undefined;
+        const ask = entry?.LatestQuote?.AskPrice as number | undefined;
+        const last = entry?.LatestTrade?.Price as number | undefined;
+        return {
+          symbol,
+          ts: new Date(ts).toISOString(),
+          bid,
+          ask,
+          last,
+        };
+      }
+    } catch (e) {
+      console.error(`Snapshot fallback also failed for ${symbol}`, e);
+    }
+    // Surface a consistent error up the stack if all fallbacks fail
     throw error;
   }
 }
@@ -121,8 +142,21 @@ export const streamQuotes = async (
 
   stream.onConnect(() => {
     console.log("[Alpaca WS] ==> Connection open");
-    stream.subscribeForQuotes(symbols);
-    console.log(`[Alpaca WS] ==> SUB Quotes: ${symbols.join(", ")}`);
+    // Subscribe to both quotes (bid/ask) and trades (last) for richer updates
+    try {
+      if (typeof (stream as any).subscribe === 'function') {
+        (stream as any).subscribe({ quotes: symbols, trades: symbols });
+      } else {
+        stream.subscribeForQuotes(symbols);
+        if (typeof (stream as any).subscribeForTrades === 'function') {
+          (stream as any).subscribeForTrades(symbols);
+        }
+      }
+    } catch (e) {
+      console.warn("[Alpaca WS] subscribe failed, falling back to quotes only", e);
+      stream.subscribeForQuotes(symbols);
+    }
+    console.log(`[Alpaca WS] ==> SUB Quotes/Trades: ${symbols.join(", ")}`);
   });
 
   stream.onError((err: Error) => {
@@ -139,6 +173,17 @@ export const streamQuotes = async (
     });
   });
 
+  // Also propagate last price updates via trade events when available
+  (stream as any).onStockTrade?.((trade: { Symbol: string; Price: number; Timestamp: string | number | Date }) => {
+    try {
+      onMsg({
+        symbol: trade.Symbol,
+        ts: new Date(trade.Timestamp).toISOString(),
+        last: trade.Price,
+      });
+    } catch {}
+  });
+
   stream.onDisconnect(() => {
     console.log("[Alpaca WS] Disconnected");
   });
@@ -147,7 +192,14 @@ export const streamQuotes = async (
 
   return () => {
     console.log("[Alpaca Stream] Unsubscribing...");
-    stream.unsubscribeFromQuotes(symbols);
+    try {
+      if (typeof (stream as any).unsubscribe === 'function') {
+        (stream as any).unsubscribe({ quotes: symbols, trades: symbols });
+      } else {
+        stream.unsubscribeFromQuotes(symbols);
+        (stream as any).unsubscribeFromTrades?.(symbols);
+      }
+    } catch {}
     stream.disconnect();
   };
 };

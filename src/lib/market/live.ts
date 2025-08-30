@@ -10,8 +10,17 @@ export function connectSSE(symbols: string[], onQuote: (tick: Tick) => void) {
     } catch {}
   };
   es.addEventListener('quote', handler as EventListener);
+  // Basic error/logging hooks to help with diagnostics
+  es.addEventListener('error', ((e: MessageEvent) => {
+    try {
+      const d = (e as any).data ? JSON.parse((e as any).data) : null;
+      console.warn('[SSE] error', d ?? e);
+    } catch { console.warn('[SSE] error'); }
+  }) as EventListener);
+  es.addEventListener('message', handler as EventListener);
   return () => {
     try { es.removeEventListener('quote', handler as EventListener); } catch {}
+    try { es.removeEventListener('message', handler as EventListener); } catch {}
     try { es.close(); } catch {}
   };
 }
