@@ -1,7 +1,14 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Card, CardContent } from "@/components/ui/card";
 import { connectSSE } from "@/lib/market/live";
+import { 
+  Activity, 
+  TrendingUp, 
+  TrendingDown, 
+  RefreshCw,
+  ArrowUpRight,
+  ArrowDownRight
+} from "lucide-react";
 
 type LiveQuote = { bid?: number; ask?: number; last?: number; ts?: string; open?: number };
 
@@ -26,6 +33,8 @@ export default function LiveMarketsPage() {
       return {};
     }
   });
+
+  const [refreshing, setRefreshing] = useState(false);
 
   // Persist quotes to sessionStorage on every update
   useEffect(() => {
@@ -75,31 +84,166 @@ export default function LiveMarketsPage() {
     };
   }, [symbols]);
 
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    setRefreshing(false);
+  };
+
+  const QuoteCard = ({ symbol }: { symbol: string }) => {
+    const q = data[symbol] || {};
+    const price = q.last ?? q.bid ?? q.ask;
+    const open = q.open;
+    const pct = price != null && open ? ((price - open) / open) * 100 : null;
+    const isPositive = pct != null && pct >= 0;
+    
+    return (
+      <div className="group relative overflow-hidden rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-6 transition-all duration-300 hover:shadow-medium hover:-translate-y-1">
+        <div className="absolute inset-0 bg-gradient-to-br from-emerald-50/50 to-transparent dark:from-emerald-950/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+        
+        <div className="relative">
+          <div className="flex items-start justify-between mb-4">
+            <div className={`flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br shadow-soft transition-transform duration-300 group-hover:scale-110 ${
+              isPositive ? 'from-emerald-500 to-emerald-600' : 'from-red-500 to-red-600'
+            }`}>
+              <Activity className="h-6 w-6 text-white" />
+            </div>
+            
+            {pct != null && (
+              <div className={`flex items-center space-x-1 text-sm font-medium ${
+                isPositive ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'
+              }`}>
+                {isPositive ? (
+                  <ArrowUpRight className="h-4 w-4" />
+                ) : (
+                  <ArrowDownRight className="h-4 w-4" />
+                )}
+                <span>{pct >= 0 ? '+' : ''}{pct.toFixed(2)}%</span>
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-1 mb-4">
+            <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-50">{symbol}</h2>
+            <p className="text-3xl font-bold text-neutral-900 dark:text-neutral-50 tracking-tight">
+              {price != null ? `$${price.toFixed(2)}` : "—"}
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="text-neutral-600 dark:text-neutral-400">Bid</span>
+              <span className="font-medium text-neutral-900 dark:text-neutral-50">
+                {q.bid != null ? `$${q.bid.toFixed(2)}` : "—"}
+              </span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-neutral-600 dark:text-neutral-400">Ask</span>
+              <span className="font-medium text-neutral-900 dark:text-neutral-50">
+                {q.ask != null ? `$${q.ask.toFixed(2)}` : "—"}
+              </span>
+            </div>
+          </div>
+
+          {pct != null && (
+            <div className="mt-4 pt-4 border-t border-neutral-200 dark:border-neutral-800">
+              <div className={`text-sm font-medium ${
+                isPositive ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'
+              }`}>
+                {pct >= 0 ? '+' : ''}{pct.toFixed(2)}% today
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   return (
-    <div className="p-6 space-y-6">
-      <h1 className="text-2xl font-semibold">Live Market Data</h1>
-      <div className="grid gap-4 grid-cols-1 md:grid-cols-3">
-        {symbols.map((s) => {
-          const q = data[s] || {};
-          const price = q.last ?? q.bid ?? q.ask;
-          const open = q.open;
-          const pct = price != null && open ? ((price - open) / open) * 100 : null;
-          return (
-            <Card key={s} className="rounded-2xl">
-              <CardContent className="p-5">
-                <div className="flex items-baseline justify-between">
-                  <h2 className="text-lg font-medium">{s}</h2>
-                  <span className="text-2xl font-semibold">{price != null ? `$${price.toFixed(2)}` : "—"}</span>
-                </div>
-                <div className="mt-1 text-xs text-neutral-500">{q.bid != null ? `Bid ${q.bid.toFixed(2)}` : "Bid —"} · {q.ask != null ? `Ask ${q.ask.toFixed(2)}` : "Ask —"}</div>
-                <div className={`mt-2 text-sm ${pct != null ? (pct >= 0 ? "text-emerald-600" : "text-red-600") : "text-muted-foreground"}`}>
-                  {pct != null ? `${pct.toFixed(2)}%` : "No change"}
-                </div>
-                <div className="mt-4 h-16 w-full bg-muted rounded" />
-              </CardContent>
-            </Card>
-          );
-        })}
+    <div className="h-full bg-neutral-50 dark:bg-neutral-950 p-6">
+      <div className="max-w-[1400px] mx-auto h-full">
+        {/* Header Section */}
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-4xl font-bold text-neutral-900 dark:text-neutral-50 mb-2">
+              Live Market Data
+            </h1>
+            <p className="text-lg text-neutral-600 dark:text-neutral-400">
+              Real-time quotes and market data streamed live
+            </p>
+          </div>
+          
+          <div className="flex items-center space-x-3">
+            <div className="flex items-center space-x-2">
+              <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
+              <span className="text-sm text-neutral-600 dark:text-neutral-400">Live Stream</span>
+            </div>
+            <button 
+              onClick={handleRefresh} 
+              className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium transition-all ${
+                refreshing ? 'opacity-70' : ''
+              }`}
+            >
+              <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+              Refresh
+            </button>
+          </div>
+        </div>
+
+        <div className="space-y-8">
+          {/* Live Quotes Grid */}
+          <div>
+            <h2 className="text-xl font-semibold text-neutral-900 dark:text-neutral-50 mb-6">
+              Featured Stocks
+            </h2>
+            <div className="grid gap-6 grid-cols-1 md:grid-cols-3">
+              {symbols.map((symbol) => (
+                <QuoteCard key={symbol} symbol={symbol} />
+              ))}
+            </div>
+          </div>
+
+          {/* Market Status */}
+          <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-6 shadow-soft">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-xl font-semibold text-neutral-900 dark:text-neutral-50 mb-1">
+                  Market Status
+                </h2>
+                <p className="text-sm text-neutral-600 dark:text-neutral-400">
+                  Current trading session information
+                </p>
+              </div>
+              <div className="flex items-center space-x-2">
+                <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
+                <span className="text-sm text-emerald-600 dark:text-emerald-400 font-medium">Market Open</span>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="p-4 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/50">
+                <p className="text-sm font-medium text-neutral-600 dark:text-neutral-400 mb-2">Market Hours</p>
+                <p className="text-lg font-bold text-neutral-900 dark:text-neutral-50">9:30 AM - 4:00 PM</p>
+                <p className="text-xs text-neutral-500">EST</p>
+              </div>
+              <div className="p-4 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/50">
+                <p className="text-sm font-medium text-neutral-600 dark:text-neutral-400 mb-2">Pre-Market</p>
+                <p className="text-lg font-bold text-neutral-900 dark:text-neutral-50">4:00 AM - 9:30 AM</p>
+                <p className="text-xs text-neutral-500">EST</p>
+              </div>
+              <div className="p-4 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/50">
+                <p className="text-sm font-medium text-neutral-600 dark:text-neutral-400 mb-2">After Hours</p>
+                <p className="text-lg font-bold text-neutral-900 dark:text-neutral-50">4:00 PM - 8:00 PM</p>
+                <p className="text-xs text-neutral-500">EST</p>
+              </div>
+              <div className="p-4 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/50">
+                <p className="text-sm font-medium text-neutral-600 dark:text-neutral-400 mb-2">Time Zone</p>
+                <p className="text-lg font-bold text-neutral-900 dark:text-neutral-50">EST</p>
+                <p className="text-xs text-neutral-500">UTC-5</p>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
