@@ -47,7 +47,7 @@ const mapType = (code?: string) => {
   const c = code.trim().toUpperCase();
   if (c === 'BUY' || c === 'SELL') return c as 'BUY' | 'SELL';
   // Cash-like activities
-  if (['CDIV','SLIP','ACH','RTP','INT','CIL'].includes(c)) return 'CASH' as const;
+  if (['CDIV','SLIP','ACH','RTP','INT','CIL','REC','MRGS'].includes(c)) return 'CASH' as const;
   return undefined;
 };
 
@@ -61,15 +61,19 @@ export async function POST(req: NextRequest) {
   
   const parsed = Papa.parse<Row>(text, { 
     header: true, 
-    skipEmptyLines: true,
+    // Greedy skips lines that appear empty but may contain stray delimiters/whitespace
+    skipEmptyLines: 'greedy',
     transformHeader: header => normalizeKey(header)
   });
 
-  if (parsed.errors?.length) {
-    return new Response(`Parse error: ${parsed.errors[0].message}`, { status: 400 });
+  // Ignore benign field count mismatches (e.g., footer/disclaimer rows with extra columns)
+  const nonTrivialErrors = (parsed.errors || []).filter(e => !['TooManyFields','TooFewFields','FieldMismatch'].includes((e as any).type));
+  if (nonTrivialErrors.length) {
+    return new Response(`Parse error: ${nonTrivialErrors[0].message}`, { status: 400 });
   }
   
-  const rows = (parsed.data || []).filter(Boolean);
+  // Keep only rows that look like real transactions (have a date and some descriptor)
+  const rows = (parsed.data || []).filter(r => r && (r["activity date"] || r.activitydate || r.date) && (r.description || r.instrument || r.transcode || r.type));
   let created = 0;
 
   for (const r of rows) {
