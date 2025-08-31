@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import Papa from "papaparse";
+import type { ParseError } from "papaparse";
 import { prisma } from "@/lib/prisma";
 import dayjs from "dayjs";
 import customParseFormat from "dayjs/plugin/customParseFormat";
@@ -67,7 +68,12 @@ export async function POST(req: NextRequest) {
   });
 
   // Ignore benign field count mismatches (e.g., footer/disclaimer rows with extra columns)
-  const nonTrivialErrors = (parsed.errors || []).filter(e => !['TooManyFields','TooFewFields','FieldMismatch'].includes((e as any).type));
+  const nonTrivialErrors = (parsed.errors || []).filter((e: ParseError) => {
+    // Ignore common benign issues from broker CSVs
+    if (e.type === 'FieldMismatch') return false;
+    if (e.code === 'TooManyFields' || e.code === 'TooFewFields') return false;
+    return true;
+  });
   if (nonTrivialErrors.length) {
     return new Response(`Parse error: ${nonTrivialErrors[0].message}`, { status: 400 });
   }
