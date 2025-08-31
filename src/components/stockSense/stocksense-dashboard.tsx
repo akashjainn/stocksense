@@ -29,6 +29,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { usePortfolioData, useHistoricalData, useMarketData } from "@/hooks/usePortfolioData";
+import { ensureAccount } from "@/lib/client/portfolio";
 
 type IconType = React.ComponentType<{ size?: number; className?: string }>;
 
@@ -115,33 +116,15 @@ const StockSenseDashboard = () => {
 
   // Load accounts on mount
   useEffect(() => {
-    const loadAccounts = async () => {
+    (async () => {
       try {
-        const response = await fetch('/api/accounts');
-        const result = await response.json();
-        const accountList = result.data || [];
-        
-        if (accountList.length === 0) {
-          // Create default account if none exist
-          const createResponse = await fetch('/api/accounts', { 
-            method: 'POST', 
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: 'My Portfolio' })
-          });
-          const newAccount = await createResponse.json();
-          if (!newAccount.data?.id) throw new Error("Created account is missing an ID.");
-          setAccounts([newAccount.data]);
-          setSelectedAccount(newAccount.data.id);
-        } else {
-          setAccounts(accountList);
-          setSelectedAccount(accountList[0].id);
-        }
+        const acct = await ensureAccount();
+        setAccounts([acct]);
+        setSelectedAccount(acct.id);
       } catch (error) {
         console.error('Error loading accounts:', error);
       }
-    };
-    
-    loadAccounts();
+    })();
   }, []);
 
   const handleRefresh = async () => {

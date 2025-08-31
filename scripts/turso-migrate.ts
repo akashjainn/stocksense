@@ -45,8 +45,9 @@ async function applyMigrations() {
     for (const stmt of statements) {
       try {
         await client.execute(stmt);
-      } catch (e: any) {
-        const msg = e?.message || String(e);
+      } catch (e: unknown) {
+        const err = e as { message?: string } | undefined;
+        const msg = (err && err.message) || String(e);
         // Ignore idempotent errors when objects already exist
         if (/already exists/i.test(msg) || /duplicate column/i.test(msg)) {
           continue;

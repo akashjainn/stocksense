@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import { PortfolioChart } from "@/components/metrics/portfolio-chart";
+import { ensureAccount, getPortfolio, type EquityPoint } from "@/lib/client/portfolio";
 import { 
   Briefcase, 
   TrendingUp, 
@@ -13,7 +14,7 @@ import {
   RefreshCw
 } from "lucide-react";
 
-type Pt = { t: string; v: number };
+type Pt = EquityPoint;
 
 export default function PortfolioPage() {
   const [series, setSeries] = useState<Pt[]>([]);
@@ -29,28 +30,11 @@ export default function PortfolioPage() {
   const [positionsCount, setPositionsCount] = useState(0);
 
   useEffect(() => {
-    // Initialize account (create if missing) and load real portfolio equity curve
     const init = async () => {
       try {
         setLoading(true);
         setError(null);
-        const resp = await fetch("/api/accounts");
-        if (!resp.ok) throw new Error(`Failed to load accounts (${resp.status})`);
-        const j = await resp.json();
-        let acct = j.data?.[0];
-        if (!acct) {
-          const cr = await fetch("/api/accounts", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name: "My Portfolio" }),
-          });
-          if (!cr.ok) throw new Error(`Failed to create account (${cr.status})`);
-          const cj = await cr.json();
-          acct = cj.data;
-        }
-        if (!acct?.id) {
-          throw new Error("Failed to retrieve or create a valid account.");
-        }
+        const acct = await ensureAccount();
         setAccountId(acct.id);
         await loadPortfolio(acct.id);
       } catch (e) {
@@ -65,15 +49,7 @@ export default function PortfolioPage() {
   async function loadPortfolio(id?: string) {
     const acct = id ?? accountId;
     if (!acct) return;
-    const res = await fetch(`/api/portfolio?accountId=${encodeURIComponent(acct)}`);
-    if (!res.ok) throw new Error(`Failed to load portfolio (${res.status})`);
-    const data = (await res.json()) as {
-      cash: number;
-      totalCost: number;
-      totalValue: number;
-      positions: Array<{ symbol: string; qty: number; cost: number; price?: number; value?: number; pnl?: number; pnlPct?: number }>;
-      equityCurve: Pt[];
-    };
+    const data = await getPortfolio(acct);
     setSeries(data.equityCurve || []);
     setTotalValue(Number(data.totalValue || 0));
     setTotalCost(Number(data.totalCost || 0));

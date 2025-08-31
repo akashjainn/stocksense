@@ -1,6 +1,7 @@
 import { getMongoDb } from "@/lib/mongodb";
 import type { ObjectId } from "mongodb";
 import { buildProvider } from "@/lib/providers/prices";
+import { getDailyBars } from "@/lib/market/providers/alpaca";
 import dayjs from "dayjs";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -80,15 +81,108 @@ export async function GET(req: NextRequest) {
         console.error("[/api/portfolio] provider.getQuote failed:", provErr);
       }
     }
+  // Optional: compute market-baseline cost using historical daily close at buy dates
+  let baselineBySymbol: Record<string, { baselineCost: number; qty: number }> = {};
+  try {
+    if (symbols.length) {
+      // Build per-symbol trade events and compute earliest buy date
+      type Ev = { date: string; type: "BUY" | "SELL"; qty: number; symbol: string };
+      const events: Ev[] = [];
+      let minDate: string | null = null;
+      for (const t of txns as Tx[]) {
+        const sym = t.symbol;
+        if (!sym || (t.type !== "BUY" && t.type !== "SELL")) continue;
+        const d = dayjs(t.tradeDate).format("YYYY-MM-DD");
+        events.push({ date: d, type: t.type, qty: Number(t.qty ?? 0), symbol: sym });
+        if (t.type === "BUY") {
+          if (!minDate || d < minDate) minDate = d;
+        }
+      }
+      if (events.length && minDate) {
+        const toDate = dayjs().format("YYYY-MM-DD");
+        // Fetch historical bars once per symbol for date span
+        const priceMap: Record<string, Map<string, number>> = {};
+        for (const s of symbols) {
+          try {
+            const bars = await getDailyBars([s], minDate, toDate);
+            const m = new Map<string, number>();
+            for (const b of bars) {
+              const d = dayjs(b.t).format("YYYY-MM-DD");
+              m.set(d, b.c);
+            }
+            priceMap[s] = m;
+          } catch (err) {
+            console.error(`[portfolio] historical fetch failed for ${s}:`, err);
+            priceMap[s] = new Map();
+          }
+        }
+
+        // Helper to get close price for or before date (up to 5 days back)
+        function getCloseForDate(sym: string, date: string): number | undefined {
+          const m = priceMap[sym];
+          if (!m) return undefined;
+          let d = dayjs(date);
+          for (let i = 0; i < 6; i++) {
+            const key = d.format("YYYY-MM-DD");
+            const px = m.get(key);
+            if (px != null) return px;
+            d = d.subtract(1, "day");
+          }
+          return undefined;
+        }
+
+        // Build FIFO lots with market close at buy date
+        const lotsBySymbol: Record<string, Array<{ qty: number; price: number }>> = {};
+        for (const ev of events) {
+          if (!lotsBySymbol[ev.symbol]) lotsBySymbol[ev.symbol] = [];
+          if (ev.type === "BUY") {
+            const px = getCloseForDate(ev.symbol, ev.date);
+            // if missing, skip lot (won't contribute to baseline)
+            if (px != null && ev.qty > 0) {
+              lotsBySymbol[ev.symbol].push({ qty: ev.qty, price: px });
+            }
+          } else if (ev.type === "SELL") {
+            let remaining = ev.qty;
+            const lots = lotsBySymbol[ev.symbol];
+            for (let i = 0; i < lots.length && remaining > 0; i++) {
+              const take = Math.min(remaining, lots[i].qty);
+              lots[i].qty -= take;
+              remaining -= take;
+            }
+            // drop depleted lots
+            lotsBySymbol[ev.symbol] = lots.filter((l) => l.qty > 0);
+          }
+        }
+
+        baselineBySymbol = {};
+        for (const s of symbols) {
+          const lots = lotsBySymbol[s] || [];
+          const qty = lots.reduce((sum, l) => sum + l.qty, 0);
+          const baselineCost = lots.reduce((sum, l) => sum + l.qty * l.price, 0);
+          baselineBySymbol[s] = { baselineCost, qty };
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("[/api/portfolio] baseline market computation skipped:", err);
+    baselineBySymbol = {};
+  }
+
   const enriched = positions.map((p) => {
     const price = latestBySymbol[p.symbol];
     const value = price != null ? p.qty * price : undefined;
     const pnl = value != null ? value - p.cost : undefined;
     const pnlPct = pnl != null && p.cost > 0 ? (pnl / p.cost) * 100 : undefined;
-    return { ...p, price, value, pnl, pnlPct };
+    const bm = baselineBySymbol[p.symbol];
+    const baselineCostMarket = bm?.qty ? bm.baselineCost : undefined;
+    const pnlMarket = value != null && baselineCostMarket != null ? value - baselineCostMarket : undefined;
+    const pnlPctMarket = pnlMarket != null && baselineCostMarket && baselineCostMarket > 0 ? (pnlMarket / baselineCostMarket) * 100 : undefined;
+    return { ...p, price, value, pnl, pnlPct, baselineCostMarket, pnlMarket, pnlPctMarket };
   });
   const totalCost = enriched.reduce((s, p) => s + p.cost, 0);
   const totalEquity = enriched.reduce((s, p) => s + (p.value ?? 0), 0) + cash;
+  const totalsBaseline = enriched.reduce((s, p) => s + (p.baselineCostMarket ?? 0), 0);
+  const totalsPnlMarket = enriched.reduce((s, p) => s + (p.pnlMarket ?? 0), 0);
 
     // Simple equity curve (flat at current totalEquity for last 30 days)
     const curve: { t: string; v: number }[] = [];
@@ -97,7 +191,14 @@ export async function GET(req: NextRequest) {
       curve.push({ t: d, v: totalEquity });
     }
 
-  return NextResponse.json({ cash, totalCost, totalValue: totalEquity, positions: enriched, equityCurve: curve });
+  return NextResponse.json({ 
+    cash, 
+    totalCost, 
+    totalValue: totalEquity, 
+    positions: enriched, 
+    equityCurve: curve,
+    totals: { baselineCostMarket: totalsBaseline, pnlMarket: totalsPnlMarket }
+  });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Unknown error";
   console.error("[/api/portfolio] GET failed:", e);
