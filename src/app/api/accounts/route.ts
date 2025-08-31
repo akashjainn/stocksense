@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import fs from "fs";
-import path from "path";
+// removed unused imports
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -33,8 +32,6 @@ async function ensureSchema() {
     
     // Use Prisma's db push instead of raw SQL for more reliability
     const { spawn } = await import("child_process");
-    const { promisify } = await import("util");
-    const execAsync = promisify(spawn);
     
     // Run prisma db push programmatically
     const pushProcess = spawn("npx", ["prisma", "db", "push", "--accept-data-loss"], {
@@ -70,7 +67,7 @@ async function ensureSchema() {
     // Fallback: try to create just the essential tables manually
     try {
       console.log("[ensureSchema] Attempting fallback table creation...");
-      await (prisma as any).$executeRawUnsafe(`
+      await prisma.$executeRawUnsafe(`
         CREATE TABLE IF NOT EXISTS "User" (
           "id" TEXT NOT NULL PRIMARY KEY,
           "name" TEXT,
@@ -79,7 +76,7 @@ async function ensureSchema() {
         )
       `);
       
-      await (prisma as any).$executeRawUnsafe(`
+      await prisma.$executeRawUnsafe(`
         CREATE TABLE IF NOT EXISTS "PortfolioAccount" (
           "id" TEXT NOT NULL PRIMARY KEY,
           "userId" TEXT NOT NULL,

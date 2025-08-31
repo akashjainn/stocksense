@@ -46,14 +46,14 @@ function createPrismaClient(): PrismaClient {
         authToken,
       });
       console.log("[DB] libSQL client created successfully");
-      // @ts-ignore - Known type compatibility issue with adapter
+      // @ts-expect-error - Known type compatibility issue with adapter
       const adapter = new PrismaLibSQL(libsql);
       console.log("[DB] Adapter created successfully");
-      const client = new PrismaClient({ 
-        // @ts-ignore - Bypass TypeScript issues with adapter
+      const opts = {
         adapter,
-        log: process.env.NODE_ENV === "development" ? ["query", "error", "warn"] : ["error"]
-      });
+        log: process.env.NODE_ENV === "development" ? ["query", "error", "warn"] : ["error"],
+      } as unknown as Record<string, unknown>;
+  const client = new PrismaClient(opts as unknown as never);
       console.log("[DB] PrismaClient created successfully");
       return client;
     } catch (error) {
