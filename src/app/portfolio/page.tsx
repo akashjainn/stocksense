@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { PortfolioChart } from "@/components/metrics/portfolio-chart";
 import { 
   Briefcase, 
@@ -18,23 +18,81 @@ type Pt = { t: string; v: number };
 export default function PortfolioPage() {
   const [series, setSeries] = useState<Pt[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [accountId, setAccountId] = useState<string | undefined>(undefined);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const [totalValue, setTotalValue] = useState(0);
+  const [totalCost, setTotalCost] = useState(0);
+  const [cash, setCash] = useState(0);
+  const [positionsCount, setPositionsCount] = useState(0);
 
   useEffect(() => {
-    // placeholder: synthesize a small series from last 30 days using SPY close via prices API if available later
-    const today = new Date();
-    const arr: Pt[] = Array.from({ length: 30 }, (_, i) => {
-      const d = new Date(today);
-      d.setDate(d.getDate() - (29 - i));
-      return { t: d.toISOString().slice(0, 10), v: 10000 + Math.sin(i / 5) * 250 + i * 10 };
-    });
-    setSeries(arr);
+    // Initialize account (create if missing) and load real portfolio equity curve
+    const init = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const resp = await fetch("/api/accounts");
+        if (!resp.ok) throw new Error(`Failed to load accounts (${resp.status})`);
+        const j = await resp.json();
+        let acct = j.data?.[0];
+        if (!acct) {
+          const cr = await fetch("/api/accounts", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name: "My Portfolio" }),
+          });
+          if (!cr.ok) throw new Error(`Failed to create account (${cr.status})`);
+          const cj = await cr.json();
+          acct = cj.data;
+        }
+        setAccountId(acct.id);
+        await loadPortfolio(acct.id);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Unable to initialize portfolio");
+      } finally {
+        setLoading(false);
+      }
+    };
+    init();
   }, []);
+
+  async function loadPortfolio(id?: string) {
+    const acct = id ?? accountId;
+    if (!acct) return;
+    const res = await fetch(`/api/portfolio?accountId=${encodeURIComponent(acct)}`);
+    if (!res.ok) throw new Error(`Failed to load portfolio (${res.status})`);
+    const data = (await res.json()) as {
+      cash: number;
+      totalCost: number;
+      totalValue: number;
+      positions: Array<{ symbol: string; qty: number; cost: number; price?: number; value?: number; pnl?: number; pnlPct?: number }>;
+      equityCurve: Pt[];
+    };
+    setSeries(data.equityCurve || []);
+    setTotalValue(Number(data.totalValue || 0));
+    setTotalCost(Number(data.totalCost || 0));
+    setCash(Number(data.cash || 0));
+    setPositionsCount((data.positions || []).length);
+  }
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    try {
+      await loadPortfolio();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Refresh failed");
+    }
     setRefreshing(false);
   };
+
+  const last = series.at(-1)?.v ?? 0;
+  const prev = series.length >= 2 ? series.at(-2)!.v : last;
+  const dayChange = last - prev;
+  const dayChangePct = prev !== 0 ? (dayChange / prev) * 100 : 0;
+  const totalPnl = useMemo(() => totalValue - totalCost, [totalValue, totalCost]);
+  const totalPnlPct = useMemo(() => (totalCost > 0 ? (totalPnl / totalCost) * 100 : 0), [totalPnl, totalCost]);
 
   const StatCard = ({ 
     title, 
@@ -104,6 +162,9 @@ export default function PortfolioPage() {
             <p className="text-lg text-neutral-600 dark:text-neutral-400">
               Track your investment performance and analyze your holdings
             </p>
+            {error && (
+              <p className="mt-2 text-sm text-red-600 dark:text-red-400">{error}</p>
+            )}
           </div>
           
           <div className="flex items-center space-x-3">
@@ -120,6 +181,7 @@ export default function PortfolioPage() {
               className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium transition-all ${
                 refreshing ? 'opacity-70' : ''
               }`}
+              disabled={loading}
             >
               <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
               Refresh Data
@@ -132,30 +194,30 @@ export default function PortfolioPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <StatCard 
               title="Total Portfolio Value" 
-              value="$125,847.32" 
-              change="$2,847.23" 
-              changePercent={2.31} 
+              value={`$${last.toLocaleString(undefined, { maximumFractionDigits: 2, minimumFractionDigits: 2 })}`} 
+              change={`$${Math.abs(dayChange).toLocaleString(undefined, { maximumFractionDigits: 2, minimumFractionDigits: 2 })}`} 
+              changePercent={Math.abs(dayChangePct)} 
               icon={DollarSign} 
-              trend="up" 
-              subtitle="today" 
+              trend={dayChange >= 0 ? 'up' : 'down'} 
+              subtitle="vs prev" 
             />
             <StatCard 
               title="Total Gain/Loss" 
-              value="$18,234.56" 
-              changePercent={16.94} 
+              value={`$${Math.abs(totalPnl).toLocaleString(undefined, { maximumFractionDigits: 2, minimumFractionDigits: 2 })}`} 
+              changePercent={Math.abs(totalPnlPct)} 
               icon={TrendingUp} 
-              trend="up" 
-              subtitle="all time" 
+              trend={totalPnl >= 0 ? 'up' : 'down'} 
+              subtitle="since inception" 
             />
             <StatCard 
               title="Active Positions" 
-              value="5" 
+              value={positionsCount} 
               icon={Briefcase} 
               subtitle="holdings" 
             />
             <StatCard 
               title="Buying Power" 
-              value="$12,350.00" 
+              value={`$${cash.toLocaleString(undefined, { maximumFractionDigits: 2, minimumFractionDigits: 2 })}`} 
               icon={Activity} 
               subtitle="available" 
             />
@@ -184,7 +246,9 @@ export default function PortfolioPage() {
                 </button>
               </div>
             </div>
-            <PortfolioChart data={series} />
+            <div className="opacity-100 transition-opacity" aria-busy={loading}>
+              <PortfolioChart data={series} />
+            </div>
           </div>
         </div>
       </div>
