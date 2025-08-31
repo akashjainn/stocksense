@@ -1,54 +1,43 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getDb } from "@/lib/db";
+import { getMongoDb } from "@/lib/mongodb";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 async function ensureDemoUser() {
-  const db = getDb();
-  
-  let result = await db.execute({
-    sql: "SELECT id FROM User WHERE email = ?",
-    args: ["demo@stocksense.local"]
-  });
-  
-  if (result.rows.length > 0 && result.rows[0].id) {
-    return { id: result.rows[0].id as string };
-  }
-  
-  result = await db.execute({
-    sql: "INSERT INTO User (id, email, name, createdAt) VALUES (lower(hex(randomblob(16))), ?, ?, datetime('now')) RETURNING id",
-    args: ["demo@stocksense.local", "Demo User"]
-  });
-  
-  if (!result.rows[0]?.id) {
-    throw new Error("Failed to create or find demo user.");
-  }
-  
-  return { id: result.rows[0].id as string };
+  const db = await getMongoDb();
+  const users = db.collection("users");
+  const email = "demo@stocksense.local";
+  const existing = await users.findOne<{ _id: any }>({ email }, { projection: { _id: 1 } });
+  if (existing?._id) return { id: String(existing._id) };
+  const ins = await users.insertOne({ email, name: "Demo User", createdAt: new Date() });
+  if (!ins.insertedId) throw new Error("Failed to create or find demo user.");
+  return { id: String(ins.insertedId) };
 }
 
 export async function GET() {
   try {
-    const db = getDb();
-    const result = await db.execute("SELECT id, name, userId, baseCcy, createdAt FROM PortfolioAccount ORDER BY createdAt ASC");
-    
-    const accounts = result.rows.map((row: any) => ({
-      id: row.id,
-      name: row.name,
-      userId: row.userId,
-      baseCcy: row.baseCcy,
-      createdAt: row.createdAt
+    const db = await getMongoDb();
+    const accountsCol = db.collection("accounts");
+    const cursor = accountsCol
+      .find({}, { projection: { name: 1, userId: 1, baseCcy: 1, createdAt: 1 } })
+      .sort({ createdAt: 1 });
+    const docs = await cursor.toArray();
+    const accounts = docs.map((d: any) => ({
+      id: String(d._id),
+      name: d.name,
+      userId: d.userId,
+      baseCcy: d.baseCcy ?? "USD",
+      createdAt: d.createdAt ?? null,
     }));
-    
     return NextResponse.json({ data: accounts });
   } catch (e) {
     const error = e as Error;
     console.error("[/api/accounts] GET failed:", error);
-    return NextResponse.json({ 
-      error: "Accounts query failed", 
-      detail: error.message 
-    }, { status: 500 });
+    return NextResponse.json(
+      { error: "Accounts query failed", detail: error.message },
+      { status: 500 }
+    );
   }
 }
 
@@ -57,35 +46,32 @@ export async function POST(req: NextRequest) {
     const body = (await req.json().catch(() => ({}))) as { name?: string };
     const user = await ensureDemoUser();
     const name = body.name?.trim() || "My Portfolio";
-    
-    const db = getDb();
-    const result = await db.execute({
-      sql: `INSERT INTO PortfolioAccount (id, userId, name, baseCcy, createdAt) 
-            VALUES (lower(hex(randomblob(16))), ?, ?, 'USD', datetime('now')) 
-            RETURNING id, name, userId, baseCcy, createdAt`,
-      args: [user.id, name]
-    });
-    
-    if (!result.rows[0]?.id) {
-      console.error("[/api/accounts] Created account missing id:", result.rows[0]);
-      return NextResponse.json({ error: "Account creation failed to return an ID" }, { status: 500 });
+
+    const db = await getMongoDb();
+    const accountsCol = db.collection("accounts");
+    const doc = { userId: user.id, name, baseCcy: "USD", createdAt: new Date() };
+    const ins = await accountsCol.insertOne(doc);
+    if (!ins.insertedId) {
+      console.error("[/api/accounts] Created account missing id:", ins);
+      return NextResponse.json(
+        { error: "Account creation failed to return an ID" },
+        { status: 500 }
+      );
     }
-    
     const account = {
-      id: result.rows[0].id,
-      name: result.rows[0].name,
-      userId: result.rows[0].userId,
-      baseCcy: result.rows[0].baseCcy,
-      createdAt: result.rows[0].createdAt
+      id: String(ins.insertedId),
+      name,
+      userId: user.id,
+      baseCcy: "USD",
+      createdAt: doc.createdAt,
     };
-    
     return NextResponse.json({ data: account }, { status: 201 });
   } catch (e) {
     const error = e as Error;
     console.error("[/api/accounts] POST failed:", error);
-    return NextResponse.json({ 
-      error: "Account creation failed", 
-      detail: error.message 
-    }, { status: 500 });
+    return NextResponse.json(
+      { error: "Account creation failed", detail: error.message },
+      { status: 500 }
+    );
   }
 }

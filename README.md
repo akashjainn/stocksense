@@ -6,10 +6,14 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 2. Configure `.env`:
 	- For local SQLite dev: `DATABASE_URL=file:./prisma/dev.db`
 	- For Turso (hosted): set `DATABASE_URL=libsql://<host>?authToken=...` or split `DATABASE_URL=libsql://<host>` and `TURSO_AUTH_TOKEN=...`
+	- For MongoDB (Atlas): set `MONGODB_URI=your_connection_string` and optional `MONGODB_DB=stocksense`
 	- Also set: `NEXTAUTH_SECRET`, `ALPHAVANTAGE_API_KEY`, `REDIS_URL`, `EDGAR_USER_AGENT`
 3. DB (SQLite): `npm run prisma:migrate`; `npm run db:seed`
    DB (Turso): `npm run db:turso:apply`
 4. Run: npm run dev (http://localhost:3000)
+
+MongoDB quick check:
+- GET /api/mongo-test — verifies connection (requires MONGODB_URI)
 
 APIs available:
 - GET /api/health

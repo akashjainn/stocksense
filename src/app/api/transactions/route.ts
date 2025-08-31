@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { getMongoDb } from "@/lib/mongodb";
 import { z } from "zod";
 
 export const runtime = "nodejs";
@@ -20,28 +20,38 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const data = Txn.parse(body);
-    let secId: string | undefined;
+    const db = await getMongoDb();
+    // Upsert a security document if symbol provided
+    let securityId: string | undefined;
     if (data.symbol) {
-      const sec = await prisma.security.upsert({
-        where: { symbol: data.symbol },
-        update: {},
-        create: { symbol: data.symbol, name: data.symbol },
-      });
-      secId = sec.id;
+      const sec = await db.collection("securities").findOneAndUpdate(
+        { symbol: data.symbol },
+        { $setOnInsert: { symbol: data.symbol, name: data.symbol, createdAt: new Date() } },
+        { upsert: true, returnDocument: "after", projection: { _id: 1 } }
+      );
+  const idVal = sec && (sec as any).value ? (sec as any).value._id : undefined;
+      if (idVal) securityId = String(idVal);
     }
-    const rec = await prisma.transaction.create({
-      data: {
-        accountId: data.accountId,
-        securityId: secId,
-        type: data.type,
-        qty: data.qty ?? null,
-        price: data.price ?? null,
-        fee: data.fee ?? null,
-        tradeDate: new Date(data.tradeDate),
-        notes: data.notes,
-      },
-    });
-    return Response.json({ ok: true, id: rec.id });
+    const txDoc = {
+      accountId: data.accountId,
+      securityId: securityId,
+      symbol: data.symbol,
+      type: data.type,
+      qty: data.qty ?? null,
+      price: data.price ?? null,
+      fee: data.fee ?? null,
+      tradeDate: new Date(data.tradeDate),
+      notes: data.notes,
+      createdAt: new Date(),
+    } as const;
+    const ins = await db.collection("transactions").insertOne(txDoc as any);
+    if (!ins.insertedId) {
+      return Response.json(
+        { error: "Transaction create failed: no id returned" },
+        { status: 500 }
+      );
+    }
+    return Response.json({ ok: true, id: String(ins.insertedId) }, { status: 201 });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Unknown error";
     return Response.json({ error: "Transaction create failed", detail: msg }, { status: 500 });
@@ -49,12 +59,15 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET() {
-  const txns = await prisma.transaction.findMany({ orderBy: { tradeDate: "asc" }, include: { security: true } });
-  const data = txns.map((t) => ({
-    id: t.id,
+  const db = await getMongoDb();
+  const txCol = db.collection("transactions");
+  const cursor = txCol.find({}, { sort: { tradeDate: 1 } });
+  const docs = await cursor.toArray();
+  const data = docs.map((t: any) => ({
+    id: String(t._id),
     accountId: t.accountId,
     securityId: t.securityId,
-    symbol: t.security?.symbol,
+    symbol: t.symbol, // if you later embed symbol, include it here
     type: t.type,
     qty: t.qty != null ? Number(t.qty) : null,
     price: t.price != null ? Number(t.price) : null,
