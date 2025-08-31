@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { getMongoDb } from "@/lib/mongodb";
+import type { ObjectId } from "mongodb";
 import { z } from "zod";
 
 export const runtime = "nodejs";
@@ -29,7 +30,7 @@ export async function POST(req: NextRequest) {
         { $setOnInsert: { symbol: data.symbol, name: data.symbol, createdAt: new Date() } },
         { upsert: true, returnDocument: "after", projection: { _id: 1 } }
       );
-  const idVal = sec && (sec as any).value ? (sec as any).value._id : undefined;
+      const idVal = sec?.value?._id;
       if (idVal) securityId = String(idVal);
     }
     const txDoc = {
@@ -43,8 +44,8 @@ export async function POST(req: NextRequest) {
       tradeDate: new Date(data.tradeDate),
       notes: data.notes,
       createdAt: new Date(),
-    } as const;
-    const ins = await db.collection("transactions").insertOne(txDoc as any);
+    };
+    const ins = await db.collection("transactions").insertOne(txDoc);
     if (!ins.insertedId) {
       return Response.json(
         { error: "Transaction create failed: no id returned" },
@@ -62,8 +63,20 @@ export async function GET() {
   const db = await getMongoDb();
   const txCol = db.collection("transactions");
   const cursor = txCol.find({}, { sort: { tradeDate: 1 } });
-  const docs = await cursor.toArray();
-  const data = docs.map((t: any) => ({
+  type TxDoc = {
+    _id: ObjectId;
+    accountId: string;
+    securityId?: string;
+    symbol?: string;
+    type: "BUY" | "SELL" | "DIV" | "CASH";
+    qty?: number | null;
+    price?: number | null;
+    fee?: number | null;
+    tradeDate: Date;
+    notes?: string;
+  };
+  const docs = await cursor.toArray() as TxDoc[];
+  const data = docs.map((t) => ({
     id: String(t._id),
     accountId: t.accountId,
     securityId: t.securityId,
