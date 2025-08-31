@@ -36,6 +36,23 @@ export async function GET(req: NextRequest) {
   }
   const positions = Array.from(holdings.values()).filter((p) => p.qty > 0);
   const symbols = positions.map((p) => p.symbol);
+  
+  // Handle empty portfolio case
+  if (positions.length === 0) {
+    const curve: { t: string; v: number }[] = [];
+    for (let i = 29; i >= 0; i--) {
+      const d = dayjs().subtract(i, "day").format("YYYY-MM-DD");
+      curve.push({ t: d, v: cash });
+    }
+    return Response.json({ 
+      cash, 
+      totalCost: 0, 
+      totalValue: cash, 
+      positions: [], 
+      equityCurve: curve 
+    });
+  }
+  
   // Try to use latest stored price; fallback to provider quote
   const latestBySymbol: Record<string, number> = {};
   if (symbols.length) {

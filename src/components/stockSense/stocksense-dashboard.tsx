@@ -201,6 +201,27 @@ const StockSenseDashboard = () => {
     );
   }
 
+  // Show empty portfolio state
+  if (portfolioData && portfolioData.positions.length === 0 && !portfolioError) {
+    return (
+      <div className="h-full bg-neutral-50 dark:bg-neutral-950 p-6 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-900/20 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Briefcase className="w-8 h-8 text-emerald-600 dark:text-emerald-400" />
+          </div>
+          <p className="text-lg font-semibold text-neutral-900 dark:text-neutral-50 mb-2">No Portfolio Data</p>
+          <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-4">Get started by importing your transaction data</p>
+          <button 
+            onClick={() => window.location.href = '/portfolio/import'}
+            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium transition-colors"
+          >
+            Import Portfolio
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   // Show error state
   if (portfolioError) {
     return (

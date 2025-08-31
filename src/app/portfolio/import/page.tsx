@@ -62,8 +62,8 @@ const StatCard = ({
               )}
             </div>
           </div>
-          <div className="p-3 bg-blue-100 rounded-full">
-            <Icon className="h-6 w-6 text-blue-600" />
+          <div className="p-3 bg-emerald-100 rounded-full">
+            <Icon className="h-6 w-6 text-emerald-600" />
           </div>
         </div>
       </CardContent>
@@ -167,11 +167,11 @@ export default function ImportPortfolioPage() {
         </div>
 
         {/* Upload Section */}
-        <Card className="mb-8 bg-gradient-to-br from-blue-50 to-indigo-50 border-0 shadow-sm">
+        <Card className="mb-8 bg-gradient-to-br from-emerald-50 to-green-50 border-0 shadow-sm">
           <CardContent className="p-8">
             <div className="flex items-center gap-3 mb-6">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <Upload className="h-5 w-5 text-blue-600" />
+              <div className="p-2 bg-emerald-100 rounded-lg">
+                <Upload className="h-5 w-5 text-emerald-600" />
               </div>
               <h2 className="text-xl font-semibold text-gray-900">Upload Transaction Data</h2>
             </div>
@@ -180,7 +180,7 @@ export default function ImportPortfolioPage() {
               <div className="md:col-span-2 space-y-2">
                 <label className="text-sm font-medium text-gray-700">Select Account</label>
                 <select 
-                  className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200" 
+                  className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all duration-200" 
                   value={accountId} 
                   onChange={(e) => setAccountId(e.target.value)}
                 >
@@ -197,7 +197,7 @@ export default function ImportPortfolioPage() {
                     type="file" 
                     accept=".csv" 
                     onChange={(e) => setFile(e.target.files?.[0] || null)} 
-                    className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" 
+                    className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all duration-200 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100" 
                   />
                 </div>
               </div>
@@ -205,7 +205,7 @@ export default function ImportPortfolioPage() {
               <div className="md:col-span-1">
                 <Button 
                   type="submit" 
-                  className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-medium rounded-lg transition-all duration-200 shadow-sm"
+                  className="w-full py-3 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white font-medium rounded-lg transition-all duration-200 shadow-sm"
                   disabled={!file || !accountId}
                 >
                   Import
@@ -214,9 +214,9 @@ export default function ImportPortfolioPage() {
             </form>
             
             {created != null && (
-              <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg flex items-center gap-3">
-                <CheckCircle className="h-5 w-5 text-green-600" />
-                <span className="text-sm font-medium text-green-800">
+              <div className="mt-6 p-4 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center gap-3">
+                <CheckCircle className="h-5 w-5 text-emerald-600" />
+                <span className="text-sm font-medium text-emerald-800">
                   Successfully imported {created} transactions
                 </span>
               </div>
@@ -259,8 +259,8 @@ export default function ImportPortfolioPage() {
             <Card className="mb-8 bg-gradient-to-br from-white to-gray-50/50 border-0 shadow-sm">
               <CardContent className="p-8">
                 <div className="flex items-center gap-3 mb-6">
-                  <div className="p-2 bg-green-100 rounded-lg">
-                    <Activity className="h-5 w-5 text-green-600" />
+                  <div className="p-2 bg-emerald-100 rounded-lg">
+                    <Activity className="h-5 w-5 text-emerald-600" />
                   </div>
                   <h2 className="text-xl font-semibold text-gray-900">Portfolio Performance</h2>
                 </div>
@@ -308,12 +308,12 @@ export default function ImportPortfolioPage() {
 
         {/* Positions Table */}
         {positions.length > 0 && (
-          <Card className="bg-gradient-to-br from-white to-gray-50/50 border-0 shadow-sm">
-            <CardContent className="p-8">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="p-2 bg-purple-100 rounded-lg">
-                  <FileText className="h-5 w-5 text-purple-600" />
-                </div>
+            <Card className="bg-gradient-to-br from-white to-gray-50/50 border-0 shadow-sm">
+              <CardContent className="p-8">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="p-2 bg-emerald-100 rounded-lg">
+                    <FileText className="h-5 w-5 text-emerald-600" />
+                  </div>
                 <h2 className="text-xl font-semibold text-gray-900">Current Holdings</h2>
               </div>
               
@@ -332,7 +332,7 @@ export default function ImportPortfolioPage() {
                   </thead>
                   <tbody>
                     {positions.map((position, index) => (
-                      <tr key={position.symbol} className={`border-b border-gray-100 ${index % 2 === 0 ? 'bg-gray-50/50' : 'bg-white'} hover:bg-blue-50/50 transition-colors duration-200`}>
+                      <tr key={position.symbol} className={`border-b border-gray-100 ${index % 2 === 0 ? 'bg-gray-50/50' : 'bg-white'} hover:bg-emerald-50/50 transition-colors duration-200`}>
                         <td className="py-4 px-2">
                           <div className="font-semibold text-gray-900">{position.symbol}</div>
                         </td>
