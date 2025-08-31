@@ -4,21 +4,27 @@ import { PrismaLibSQL } from "@prisma/adapter-libsql";
 
 // Resolve Turso connection info safely
 function resolveTursoEnv() {
-  const rawUrl = process.env.TURSO_DATABASE_URL || (process.env.DATABASE_URL?.startsWith("libsql://") ? process.env.DATABASE_URL : undefined);
-  const url = rawUrl?.trim();
-  let token = process.env.TURSO_AUTH_TOKEN?.trim();
-
-  // If token not provided separately, try to read from the URL query
-  if (url && !token) {
+  // Prefer separate env vars, fallback to embedded format
+  let url = process.env.TURSO_DATABASE_URL || process.env.DATABASE_URL;
+  let token = process.env.TURSO_AUTH_TOKEN;
+  
+  // If we have a libsql URL but no separate token, try to extract from URL
+  if (url?.startsWith("libsql://") && !token) {
     try {
       const u = new URL(url);
       const qToken = u.searchParams.get("authToken");
-      if (qToken) token = qToken;
+      if (qToken) {
+        token = qToken;
+        // Clean URL by removing authToken param for libsql client
+        u.searchParams.delete("authToken");
+        url = u.toString();
+      }
     } catch {
-      // ignore URL parse failures; libsql client might still handle it
+      // ignore URL parse failures; use as-is
     }
   }
-  return { url, token } as const;
+  
+  return { url: url?.trim(), token: token?.trim() } as const;
 }
 
 function makePrisma(): PrismaClient {
