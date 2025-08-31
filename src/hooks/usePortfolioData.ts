@@ -149,20 +149,15 @@ export function useMarketData(symbols: string[]) {
       }
       
       const result = await response.json();
-      const marketData: MarketData[] = [];
-      
-      for (const [symbol, quote] of Object.entries(result.data || {})) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const q = quote as any;
-        marketData.push({
-          symbol,
-          price: q.price || 0,
-          change: q.change || 0,
-          changePercent: q.changePercent || 0,
-          volume: q.volume,
-          timestamp: q.timestamp || new Date().toISOString()
-        });
-      }
+      const rows = (result.data || []) as Array<{ symbol: string; o: number; h: number; l: number; c: number; v: number; asOf: string }>;
+      const marketData: MarketData[] = rows.map(r => ({
+        symbol: r.symbol,
+        price: r.c,
+        change: r.c - r.o,
+        changePercent: r.o ? ((r.c - r.o) / r.o) * 100 : 0,
+        volume: r.v,
+        timestamp: r.asOf || new Date().toISOString(),
+      }));
       
       setData(marketData);
       setError(null);

@@ -123,7 +123,11 @@ const StockSenseDashboard = () => {
         
         if (accountList.length === 0) {
           // Create default account if none exist
-          const createResponse = await fetch('/api/accounts', { method: 'POST' });
+          const createResponse = await fetch('/api/accounts', { 
+            method: 'POST', 
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: 'My Portfolio' })
+          });
           const newAccount = await createResponse.json();
           setAccounts([newAccount.data]);
           setSelectedAccount(newAccount.data.id);
@@ -201,47 +205,18 @@ const StockSenseDashboard = () => {
     );
   }
 
-  // Show empty portfolio state
-  if (portfolioData && portfolioData.positions.length === 0 && !portfolioError) {
-    return (
-      <div className="h-full bg-neutral-50 dark:bg-neutral-950 p-6 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-900/20 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Briefcase className="w-8 h-8 text-emerald-600 dark:text-emerald-400" />
-          </div>
-          <p className="text-lg font-semibold text-neutral-900 dark:text-neutral-50 mb-2">No Portfolio Data</p>
-          <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-4">Get started by importing your transaction data</p>
-          <button 
-            onClick={() => window.location.href = '/portfolio/import'}
-            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium transition-colors"
-          >
-            Import Portfolio
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // Show error state
-  if (portfolioError) {
-    return (
-      <div className="h-full bg-neutral-50 dark:bg-neutral-950 p-6 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center mx-auto mb-4">
-            <TrendingDown className="w-8 h-8 text-red-600 dark:text-red-400" />
-          </div>
-          <p className="text-lg font-semibold text-neutral-900 dark:text-neutral-50 mb-2">Error Loading Portfolio</p>
-          <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-4">{portfolioError}</p>
-          <button 
-            onClick={handleRefresh}
-            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium transition-colors"
-          >
-            Try Again
-          </button>
-        </div>
-      </div>
-    );
-  }
+  // Fallback portfolio object to avoid hard error/empty screens
+  const portfolio = portfolioData ?? {
+    totalValue: 0,
+    totalCost: 0,
+    totalPnl: 0,
+    totalPnlPct: 0,
+    dayChange: 0,
+    dayChangePercent: 0,
+    positions: [] as Array<Position>,
+    cash: 0,
+    equityCurve: [] as Array<{ t: string; v: number }>,
+  };
 
   const StatCard = ({ 
     title, 
@@ -441,33 +416,42 @@ const StockSenseDashboard = () => {
 
         <div className="space-y-8">
           {/* KPI Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {portfolioError && (
+            <div className="rounded-lg border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/30 text-red-800 dark:text-red-300 p-4 flex items-center justify-between">
+              <div>
+                <p className="font-semibold">Error loading portfolio</p>
+                <p className="text-sm opacity-80">{portfolioError}</p>
+              </div>
+              <button onClick={handleRefresh} className="px-3 py-1.5 text-sm rounded-md bg-red-600 text-white hover:bg-red-700">Try Again</button>
+            </div>
+          )}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"> 
             <StatCard 
               title="Total Portfolio Value" 
-              value={`$${portfolioData?.totalValue.toLocaleString() || '0'}`} 
-              change={`$${portfolioData?.dayChange.toLocaleString() || '0'}`} 
-              changePercent={portfolioData?.dayChangePercent || 0} 
+              value={`$${(portfolio.totalValue || 0).toLocaleString()}`} 
+              change={`$${(portfolio.dayChange || 0).toLocaleString()}`} 
+              changePercent={portfolio.dayChangePercent || 0} 
               icon={DollarSign} 
-              trend={portfolioData && portfolioData.dayChange >= 0 ? "up" : "down"} 
+              trend={portfolio.dayChange >= 0 ? "up" : "down"} 
               subtitle="today" 
             />
             <StatCard 
               title="Total Gain/Loss" 
-              value={`$${portfolioData?.totalPnl.toLocaleString() || '0'}`} 
-              changePercent={portfolioData?.totalPnlPct || 0} 
+              value={`$${(portfolio.totalPnl || 0).toLocaleString()}`} 
+              changePercent={portfolio.totalPnlPct || 0} 
               icon={TrendingUp} 
-              trend={portfolioData && portfolioData.totalPnl >= 0 ? "up" : "down"} 
+              trend={portfolio.totalPnl >= 0 ? "up" : "down"} 
               subtitle="all time" 
             />
             <StatCard 
               title="Active Positions" 
-              value={portfolioData?.positions.length || 0} 
+              value={portfolio.positions.length || 0} 
               icon={Briefcase} 
               subtitle="holdings" 
             />
             <StatCard 
               title="Cash Available" 
-              value={`$${portfolioData?.cash.toLocaleString() || '0'}`} 
+              value={`$${(portfolio.cash || 0).toLocaleString()}`} 
               icon={Activity} 
               subtitle="buying power" 
             />
@@ -646,7 +630,7 @@ const StockSenseDashboard = () => {
                   </div>
                 </div>
                 <div className="space-y-3">
-                  {portfolioData?.positions.map((position, index) => (
+                  {portfolio.positions.map((position, index) => (
                     <PositionRow key={index} position={position} />
                   )) || (
                     <div className="text-center py-8 text-neutral-500 dark:text-neutral-400">
