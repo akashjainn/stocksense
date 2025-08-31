@@ -1,33 +1,22 @@
 import { MongoClient, Db } from "mongodb";
 
-// Cached client across hot-reloads in dev and across route handlers in prod
+// Cache the connection promise across hot-reloads in dev and reuse in prod
 declare global {
-  var _mongoClientPromise: Promise<MongoClient> | undefined; // eslint-disable-line no-var
+  var _mongoClientPromise: Promise<MongoClient> | undefined;
 }
 
-const uri = process.env.MONGODB_URI;
-if (!uri) {
-  throw new Error("Missing MONGODB_URI. Set it in your environment (e.g. .env.local).");
-}
-
-const options = {};
-
-let client: MongoClient;
-let clientPromise: Promise<MongoClient>;
-
-if (process.env.NODE_ENV === "development") {
-  if (!global._mongoClientPromise) {
-    client = new MongoClient(uri, options);
-    global._mongoClientPromise = client.connect();
-  }
-  clientPromise = global._mongoClientPromise!;
-} else {
-  client = new MongoClient(uri, options);
-  clientPromise = client.connect();
-}
+const options = {} as const;
 
 export async function getMongoClient(): Promise<MongoClient> {
-  return clientPromise;
+  if (!global._mongoClientPromise) {
+    const uri = process.env.MONGODB_URI;
+    if (!uri) {
+      throw new Error("Missing MONGODB_URI. Set it in your environment (e.g. .env.local).");
+    }
+    const client = new MongoClient(uri, options);
+    global._mongoClientPromise = client.connect();
+  }
+  return global._mongoClientPromise;
 }
 
 export async function getMongoDb(): Promise<Db> {
