@@ -5,7 +5,7 @@ import { PrismaLibSQL } from "@prisma/adapter-libsql";
 // Resolve Turso connection info safely
 function resolveTursoEnv() {
   const rawUrl = process.env.TURSO_DATABASE_URL || (process.env.DATABASE_URL?.startsWith("libsql://") ? process.env.DATABASE_URL : undefined);
-  let url = rawUrl?.trim();
+  const url = rawUrl?.trim();
   let token = process.env.TURSO_AUTH_TOKEN?.trim();
 
   // If token not provided separately, try to read from the URL query
@@ -43,6 +43,17 @@ function makePrisma(): PrismaClient {
   return new PrismaClient();
 }
 
+export type PrismaConnectionMode = "turso" | "sqlite";
+let mode: PrismaConnectionMode = "sqlite";
+
+function makeTrackedPrisma(): PrismaClient {
+  const { url } = (resolveTursoEnv?.() ?? { url: undefined });
+  if (url) mode = "turso"; else mode = "sqlite";
+  return makePrisma();
+}
+
+export const prismaMode = () => mode;
+
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
-export const prisma: PrismaClient = globalForPrisma.prisma ?? makePrisma();
+export const prisma: PrismaClient = globalForPrisma.prisma ?? makeTrackedPrisma();
 if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
