@@ -2,23 +2,43 @@ import { PrismaClient } from "@prisma/client";
 import { createClient as createLibsqlClient } from "@libsql/client";
 import { PrismaLibSQL } from "@prisma/adapter-libsql";
 
-// Prefer explicit Turso env vars; fall back to DATABASE_URL if it’s already libsql://
-const tursoUrl = process.env.TURSO_DATABASE_URL || (process.env.DATABASE_URL?.startsWith("libsql://") ? process.env.DATABASE_URL : undefined);
-const tursoToken = process.env.TURSO_AUTH_TOKEN;
+// Resolve Turso connection info safely
+function resolveTursoEnv() {
+  const rawUrl = process.env.TURSO_DATABASE_URL || (process.env.DATABASE_URL?.startsWith("libsql://") ? process.env.DATABASE_URL : undefined);
+  let url = rawUrl?.trim();
+  let token = process.env.TURSO_AUTH_TOKEN?.trim();
+
+  // If token not provided separately, try to read from the URL query
+  if (url && !token) {
+    try {
+      const u = new URL(url);
+      const qToken = u.searchParams.get("authToken");
+      if (qToken) token = qToken;
+    } catch {
+      // ignore URL parse failures; libsql client might still handle it
+    }
+  }
+  return { url, token } as const;
+}
 
 function makePrisma(): PrismaClient {
-  if (tursoUrl) {
+  const { url, token } = resolveTursoEnv();
+
+  if (url) {
     try {
-      const startsWith = tursoUrl.startsWith("libsql://");
       // Minimal visibility without leaking secrets
-      console.log(`[Prisma] Using Turso adapter. URL present: ${Boolean(tursoUrl)}, startsWith libsql: ${startsWith}, token present: ${Boolean(tursoToken)}`);
-    } catch {}
-    // Pass authToken explicitly; also keep URL unchanged (some versions expect query intact)
-  const libsql = createLibsqlClient({ url: tursoUrl, authToken: tursoToken });
-  const adapter = new PrismaLibSQL(libsql as unknown as never);
-    // Note: adapter option is supported with driverAdapters preview
-  return new PrismaClient({ adapter } as unknown as Record<string, unknown> as never);
+      console.log(`[Prisma] Turso adapter init. url? ${Boolean(url)} libsql? ${url.startsWith("libsql://")} token? ${Boolean(token)}`);
+      const libsql = createLibsqlClient({ url, authToken: token });
+      // Cast due to types mismatch between adapter/client versions
+      const adapter = new PrismaLibSQL(libsql as unknown as never);
+      return new PrismaClient({ adapter } as unknown as Record<string, unknown> as never);
+    } catch (e) {
+      // Fallback to default Prisma if Turso init fails (e.g., URL_INVALID)
+      console.error("[Prisma] Turso adapter failed, falling back to SQLite PrismaClient:", (e as Error)?.message);
+      return new PrismaClient();
+    }
   }
+
   // Default: regular PrismaClient (uses sqlite file from schema / env)
   return new PrismaClient();
 }
