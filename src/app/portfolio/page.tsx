@@ -47,6 +47,9 @@ export default function PortfolioPage() {
           const cj = await cr.json();
           acct = cj.data;
         }
+        if (!acct?.id) {
+          throw new Error("Failed to retrieve or create a valid account.");
+        }
         setAccountId(acct.id);
         await loadPortfolio(acct.id);
       } catch (e) {

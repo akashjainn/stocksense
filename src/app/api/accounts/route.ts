@@ -24,15 +24,17 @@ async function ensureDemoUser() {
 
 export async function GET() {
   try {
+    console.log("DATABASE_URL:", process.env.DATABASE_URL);
+    console.log("Attempting to query accounts...");
     const accounts = await prisma.portfolioAccount.findMany({ orderBy: { createdAt: "asc" } });
+    console.log("Found accounts:", accounts.length);
     return Response.json({ data: accounts });
   } catch (e) {
+    console.error("Accounts GET error:", e);
     const msg = e instanceof Error ? e.message : "Unknown database error";
-  return Response.json({ error: "Accounts query failed", detail: msg }, { status: 500 });
+    return Response.json({ error: "Accounts query failed", detail: msg }, { status: 500 });
   }
-}
-
-export async function POST(req: NextRequest) {
+}export async function POST(req: NextRequest) {
   try {
     const body = (await req.json().catch(() => ({}))) as { name?: string };
     const user = await ensureDemoUser();

@@ -100,6 +100,7 @@ export default function ImportPortfolioPage() {
           });
           if (!res.ok) throw new Error(`Failed to create account (${res.status})`);
           const k = await res.json();
+          if (!k.data?.id) throw new Error("Created account is missing an ID.");
           setAccounts([k.data]);
           setAccountId(k.data.id);
           await buildPositions(k.data.id);

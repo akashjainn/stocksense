@@ -129,6 +129,7 @@ const StockSenseDashboard = () => {
             body: JSON.stringify({ name: 'My Portfolio' })
           });
           const newAccount = await createResponse.json();
+          if (!newAccount.data?.id) throw new Error("Created account is missing an ID.");
           setAccounts([newAccount.data]);
           setSelectedAccount(newAccount.data.id);
         } else {
