@@ -1,4 +1,4 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import fs from "fs";
 import path from "path";
@@ -53,20 +53,22 @@ async function ensureSchema() {
 export async function GET() {
   try {
     const accounts = await prisma.portfolioAccount.findMany({ orderBy: { createdAt: "asc" } });
-    return Response.json({ data: accounts });
+    return NextResponse.json({ data: accounts });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Unknown database error";
+    console.error("[/api/accounts] GET failed:", e);
     if (/no such table/i.test(msg)) {
       await ensureSchema();
       try {
         const accounts = await prisma.portfolioAccount.findMany({ orderBy: { createdAt: "asc" } });
-        return Response.json({ data: accounts });
+        return NextResponse.json({ data: accounts });
       } catch (e2) {
         const msg2 = e2 instanceof Error ? e2.message : "Unknown database error";
-        return Response.json({ error: "Accounts query failed", detail: msg2 }, { status: 500 });
+        console.error("[/api/accounts] GET retry failed:", e2);
+        return NextResponse.json({ error: "Accounts query failed", detail: msg2 }, { status: 500 });
       }
     }
-    return Response.json({ error: "Accounts query failed", detail: msg }, { status: 500 });
+    return NextResponse.json({ error: "Accounts query failed", detail: msg }, { status: 500 });
   }
 }
 
@@ -75,25 +77,45 @@ export async function POST(req: NextRequest) {
     const body = (await req.json().catch(() => ({}))) as { name?: string };
     const user = await ensureDemoUser();
     const name = body.name?.trim() || "My Portfolio";
-    const acct = await prisma.portfolioAccount.create({ data: { name, userId: user.id } });
-    return Response.json({ ok: true, data: acct });
+    const acct = await prisma.portfolioAccount.create({
+      data: { name, userId: user.id },
+      // Ensure UI-critical fields are present
+      select: { id: true, name: true, userId: true, createdAt: true },
+    });
+
+    if (!acct?.id) {
+      console.error("[/api/accounts] Created account missing id:", acct);
+      return NextResponse.json({ error: "Account missing id" }, { status: 500 });
+    }
+
+    // Keep envelope with { data } to match frontend expectations
+    return NextResponse.json({ data: acct }, { status: 201 });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Unknown database error";
     const cause = typeof e === "object" && e && "code" in e ? (e as { code?: string }).code : undefined;
+    console.error("[/api/accounts] POST failed:", e);
     if (/no such table/i.test(String(msg))) {
       await ensureSchema();
       try {
         const body = (await req.json().catch(() => ({}))) as { name?: string };
         const user = await ensureDemoUser();
         const name = body.name?.trim() || "My Portfolio";
-        const acct = await prisma.portfolioAccount.create({ data: { name, userId: user.id } });
-        return Response.json({ ok: true, data: acct });
+        const acct = await prisma.portfolioAccount.create({
+          data: { name, userId: user.id },
+          select: { id: true, name: true, userId: true, createdAt: true },
+        });
+        if (!acct?.id) {
+          console.error("[/api/accounts] Created account missing id (retry):", acct);
+          return NextResponse.json({ error: "Account missing id" }, { status: 500 });
+        }
+        return NextResponse.json({ data: acct }, { status: 201 });
       } catch (e2) {
         const msg2 = e2 instanceof Error ? e2.message : "Unknown database error";
         const cause2 = typeof e2 === "object" && e2 && "code" in e2 ? (e2 as { code?: string }).code : undefined;
-        return Response.json({ error: "Account creation failed", detail: msg2, code: cause2 }, { status: 500 });
+        console.error("[/api/accounts] POST retry failed:", e2);
+        return NextResponse.json({ error: "Account creation failed", detail: msg2, code: cause2 }, { status: 500 });
       }
     }
-    return Response.json({ error: "Account creation failed", detail: msg, code: cause }, { status: 500 });
+    return NextResponse.json({ error: "Account creation failed", detail: msg, code: cause }, { status: 500 });
   }
 }

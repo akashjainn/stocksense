@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db";
 import { buildProvider } from "@/lib/providers/prices";
 import dayjs from "dayjs";
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -48,7 +48,7 @@ export async function GET(req: NextRequest) {
       const d = dayjs().subtract(i, "day").format("YYYY-MM-DD");
       curve.push({ t: d, v: cash });
     }
-    return Response.json({ 
+  return NextResponse.json({ 
       cash, 
       totalCost: 0, 
       totalValue: cash, 
@@ -70,9 +70,13 @@ export async function GET(req: NextRequest) {
     // Fill missing via provider
     const missing = symbols.filter((s) => latestBySymbol[s] == null);
     if (missing.length) {
-      const list = await buildProvider().getQuote(missing as string[]);
-      for (const q of list) {
-        if (q.price != null) latestBySymbol[q.symbol] = q.price;
+      try {
+        const list = await buildProvider().getQuote(missing as string[]);
+        for (const q of list) {
+          if (q.price != null) latestBySymbol[q.symbol] = q.price;
+        }
+      } catch (provErr) {
+        console.error("[/api/portfolio] provider.getQuote failed:", provErr);
       }
     }
   }
@@ -109,9 +113,10 @@ export async function GET(req: NextRequest) {
     curve.push({ t: d, v });
   }
 
-    return Response.json({ cash, totalCost, totalValue: totalEquity, positions: enriched, equityCurve: curve });
+  return NextResponse.json({ cash, totalCost, totalValue: totalEquity, positions: enriched, equityCurve: curve });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Unknown error";
-    return Response.json({ error: "Portfolio fetch failed", detail: msg }, { status: 500 });
+  console.error("[/api/portfolio] GET failed:", e);
+  return NextResponse.json({ error: "Portfolio fetch failed", detail: msg }, { status: 500 });
   }
 }

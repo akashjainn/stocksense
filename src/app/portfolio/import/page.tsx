@@ -85,22 +85,41 @@ export default function ImportPortfolioPage() {
   useEffect(() => {
     setAccountsLoading(true);
     setError(null);
-  fetch("/api/accounts")
+    fetch("/api/accounts")
       .then(async (r) => {
-        if (!r.ok) throw new Error(`Failed to load accounts (${r.status})`);
+        if (!r.ok) {
+          const errorText = await r.text();
+          try {
+            const errorJson = JSON.parse(errorText);
+            throw new Error(errorJson.error || `Failed to load accounts (${r.status})`);
+          } catch {
+            throw new Error(errorText || `Failed to load accounts (${r.status})`);
+          }
+        }
         return r.json();
       })
       .then(async (j) => {
-        const list: Account[] = j.data || [];
+        const list: Account[] = j?.data || [];
         if (list.length === 0) {
           const res = await fetch("/api/accounts", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ name: "My Portfolio" }),
           });
-          if (!res.ok) throw new Error(`Failed to create account (${res.status})`);
+          if (!res.ok) {
+            const errorText = await res.text();
+            try {
+              const errorJson = JSON.parse(errorText);
+              throw new Error(errorJson.error || `Create account failed (${res.status})`);
+            } catch {
+              throw new Error(errorText || `Create account failed (${res.status})`);
+            }
+          }
           const k = await res.json();
-          if (!k.data?.id) throw new Error("Created account is missing an ID.");
+          if (!k?.data?.id) {
+            const errorMsg = k?.error || "Created account is missing an ID.";
+            throw new Error(errorMsg);
+          }
           setAccounts([k.data]);
           setAccountId(k.data.id);
           await buildPositions(k.data.id);
@@ -115,16 +134,28 @@ export default function ImportPortfolioPage() {
         await new Promise((r) => setTimeout(r, 200));
         try {
           const r = await fetch("/api/accounts");
-          if (!r.ok) throw new Error(`Failed to load accounts (${r.status})`);
+          if (!r.ok) {
+            const errorText = await r.text();
+            try {
+              const errorJson = JSON.parse(errorText);
+              throw new Error(errorJson.error || `Failed to load accounts (${r.status})`);
+            } catch {
+              throw new Error(errorText || `Failed to load accounts (${r.status})`);
+            }
+          }
           const j = await r.json();
-          const list: Account[] = j.data || [];
+          const list: Account[] = j?.data || [];
           if (list.length > 0) {
             setAccounts(list);
             setAccountId(list[0].id);
             await buildPositions(list[0].id);
+            setError(null);
             return;
           }
-        } catch {}
+        } catch (e2) {
+          setError(e2 instanceof Error ? e2.message : "Failed to initialize accounts on retry");
+          return;
+        }
         setError(e instanceof Error ? e.message : "Failed to initialize accounts");
       })
       .finally(() => setAccountsLoading(false));

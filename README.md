@@ -14,25 +14,33 @@ APIs available:
 - GET /api/quotes?symbols=AAPL,MSFT
 - POST/GET /api/transactions
 
-## Real Market Data
+## Market Data (Live + Quotes)
 
-This repo can stream real-time quotes from Polygon via WebSockets and forward them to the browser with Server-Sent Events (SSE).
+This project uses Alpaca for live market data streaming and Alpha Vantage for on-demand price/quote lookups.
 
-Setup:
-- Install: npm i ws
-- .env:
-	- MARKET_DATA_PROVIDER=polygon
-	- POLYGON_API_KEY=YOUR_POLYGON_API_KEY
+- Live streaming: implemented via Server-Sent Events (SSE) at `GET /api/stream`. Under the hood, it uses the Alpaca provider selected by `MARKET_DATA_PROVIDER=alpaca`.
+- Quotes and historical candles for portfolio calculations use the `AlphaVantageProvider` by default (`src/lib/providers/prices.ts`).
+
+Environment setup (.env):
+- DATABASE_URL=file:./prisma/dev.db
+- MARKET_DATA_PROVIDER=alpaca
+- ALPACA_API_KEY_ID=your_key
+- ALPACA_API_SECRET_KEY=your_secret
+- ALPHAVANTAGE_API_KEY=your_alpha_vantage_key
+
+Optional: You can switch providers in code later, but Polygon is not used in this repo. The previous Polygon implementation has been removed.
 
 Endpoints:
-- GET /api/stream?symbols=AAPL,MSFT — Emits `event: quote` lines containing JSON ticks.
+- GET `/api/stream?symbols=AAPL,MSFT` — Emits `event: quote` lines containing JSON ticks (SSE)
+- GET `/api/quotes?symbols=AAPL,MSFT` — On-demand quotes via the price provider
+- GET `/api/portfolio`, `/api/portfolio/history` — Portfolio value calculations (uses stored prices + provider fallbacks)
 
 Notes:
 - Market data may be subject to licensing and display rules. Ensure your usage complies with your data vendor terms.
-- For delayed data, Polygon offers delayed endpoints; adapt provider as needed.
+- Alpaca paper keys work for development. For production, ensure proper entitlements and rate limits are respected.
 
 Quick test:
-- curl -N "http://localhost:3000/api/stream?symbols=AAPL,MSFT" and observe streaming events.
+- curl -N "http://localhost:3000/api/stream?symbols=AAPL,MSFT" and observe streaming `event: quote` messages.
 
 ## Getting Started
 

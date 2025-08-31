@@ -2,7 +2,7 @@ import { prisma } from "@/lib/db";
 import { buildProvider } from "@/lib/providers/prices";
 import { getDailyBars } from "@/lib/market/providers/alpaca";
 import dayjs from "dayjs";
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
     const symbols = Array.from(currentHoldings.keys());
     
     if (symbols.length === 0) {
-      return Response.json({
+        return NextResponse.json({
         portfolioHistory: [],
         benchmark: [],
         totalValue: 0,
@@ -51,7 +51,7 @@ export async function GET(req: NextRequest) {
     const currentPrices = await getCurrentPrices(symbols);
     const { totalValue, totalCost, totalPnl, totalPnlPct } = calculateCurrentTotals(currentHoldings, currentPrices);
 
-    return Response.json({
+      return NextResponse.json({
       portfolioHistory: portfolioValues,
       benchmark: benchmarkData,
       totalValue,
@@ -64,7 +64,8 @@ export async function GET(req: NextRequest) {
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
     console.error("Error fetching portfolio history:", msg);
-    return Response.json({ error: "Failed to fetch portfolio history", detail: msg }, { status: 500 });
+      console.error("[/api/portfolio/history] GET failed:", error);
+      return NextResponse.json({ error: "Failed to fetch portfolio history", detail: msg }, { status: 500 });
   }
 }
 
