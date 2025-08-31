@@ -72,7 +72,8 @@ export const prisma: PrismaClient = new Proxy({} as PrismaClient, {
     const val = client[prop as string];
     // Bind methods to the underlying client
     if (typeof val === "function") {
-      return (val as Function).bind(client);
+  const fn = val as (...args: unknown[]) => unknown;
+  return (...args: unknown[]) => fn.apply(client, args);
     }
     return val;
   },
