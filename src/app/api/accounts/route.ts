@@ -1,12 +1,25 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 async function ensureDemoUser() {
-  let user = await prisma.user.findFirst({ where: { email: "demo@stocksense.local" } });
-  if (!user) {
-    user = await prisma.user.create({ data: { email: "demo@stocksense.local", name: "Demo User" } });
+  try {
+    let user = await prisma.user.findFirst({ where: { email: "demo@stocksense.local" } });
+    if (!user) {
+      user = await prisma.user.create({ data: { email: "demo@stocksense.local", name: "Demo User" } });
+    }
+    return user;
+  } catch (e) {
+    // Retry once in case the database was just initialized
+    await new Promise((r) => setTimeout(r, 100));
+    let user = await prisma.user.findFirst({ where: { email: "demo@stocksense.local" } });
+    if (!user) {
+      user = await prisma.user.create({ data: { email: "demo@stocksense.local", name: "Demo User" } });
+    }
+    return user;
   }
-  return user;
 }
 
 export async function GET() {

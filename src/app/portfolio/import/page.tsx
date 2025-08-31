@@ -85,7 +85,7 @@ export default function ImportPortfolioPage() {
   useEffect(() => {
     setAccountsLoading(true);
     setError(null);
-    fetch("/api/accounts")
+  fetch("/api/accounts")
       .then(async (r) => {
         if (!r.ok) throw new Error(`Failed to load accounts (${r.status})`);
         return r.json();
@@ -109,7 +109,23 @@ export default function ImportPortfolioPage() {
           await buildPositions(list[0].id);
         }
       })
-      .catch((e) => setError(e instanceof Error ? e.message : "Failed to initialize accounts"))
+      .catch(async (e) => {
+        // Try one more time in case the DB was just created
+        await new Promise((r) => setTimeout(r, 200));
+        try {
+          const r = await fetch("/api/accounts");
+          if (!r.ok) throw new Error(`Failed to load accounts (${r.status})`);
+          const j = await r.json();
+          const list: Account[] = j.data || [];
+          if (list.length > 0) {
+            setAccounts(list);
+            setAccountId(list[0].id);
+            await buildPositions(list[0].id);
+            return;
+          }
+        } catch {}
+        setError(e instanceof Error ? e.message : "Failed to initialize accounts");
+      })
       .finally(() => setAccountsLoading(false));
   }, []);
 
