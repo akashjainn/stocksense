@@ -36,12 +36,44 @@ if (!url || !url.startsWith('libsql://')) {
     const sqlPath = path.join(migrationDir, dir, 'migration.sql');
     if (!fs.existsSync(sqlPath)) continue;
     const sql = fs.readFileSync(sqlPath, 'utf8');
+    console.log(`[turso-migrate] SQL file size: ${sql.length} chars`);
 
-    // Split on semicolons that end statements; keep it simple
-    const statements = sql
-      .split(/;\s*\n/)
-      .map((s) => s.trim())
-      .filter((s) => s && !s.startsWith('--'));
+    // Parse multi-line CREATE TABLE statements properly
+    const statements = [];
+    const lines = sql.split('\n');
+    let currentStatement = '';
+    let inCreateTable = false;
+    
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (trimmed.startsWith('-- CreateTable')) {
+        // Save previous statement if any
+        if (currentStatement && inCreateTable) {
+          statements.push(currentStatement.trim());
+        }
+        currentStatement = '';
+        inCreateTable = true;
+      } else if (trimmed.startsWith('CREATE TABLE')) {
+        currentStatement = trimmed;
+      } else if (inCreateTable && trimmed) {
+        currentStatement += '\n' + trimmed;
+        if (trimmed.endsWith(');')) {
+          statements.push(currentStatement.trim());
+          currentStatement = '';
+          inCreateTable = false;
+        }
+      }
+    }
+    
+    // Add final statement if any
+    if (currentStatement && inCreateTable) {
+      statements.push(currentStatement.trim());
+    }
+
+    console.log(`[turso-migrate] Found ${statements.length} CREATE statements`);
+    statements.forEach((stmt, i) => {
+      console.log(`[turso-migrate] Statement ${i}: ${stmt.substring(0, 60)}...`);
+    });
 
     console.log(`[turso-migrate] Applying migration ${dir} (${statements.length} statements)`);
     for (const stmt of statements) {

@@ -28,19 +28,28 @@ function makePrisma(): PrismaClient {
     try {
       // Minimal visibility without leaking secrets
       console.log(`[Prisma] Turso adapter init. url? ${Boolean(url)} libsql? ${url.startsWith("libsql://")} token? ${Boolean(token)}`);
+      console.log(`[Prisma] URL length: ${url.length}, first 30 chars: ${url.substring(0, 30)}...`);
       const libsql = createLibsqlClient({ url, authToken: token });
       // Cast due to types mismatch between adapter/client versions
       const adapter = new PrismaLibSQL(libsql as unknown as never);
-      return new PrismaClient({ adapter } as unknown as Record<string, unknown> as never);
+      const client = new PrismaClient({ adapter } as unknown as Record<string, unknown> as never);
+      console.log("[Prisma] Successfully created Turso adapter client");
+      return client;
     } catch (e) {
       // Fallback to default Prisma if Turso init fails (e.g., URL_INVALID)
       console.error("[Prisma] Turso adapter failed, falling back to SQLite PrismaClient:", (e as Error)?.message);
-      return new PrismaClient();
+      // Ensure no env var pollution for fallback
+      return new PrismaClient({
+        datasources: { db: { url: "file:./prisma/dev.db" } }
+      });
     }
   }
 
   // Default: regular PrismaClient (uses sqlite file from schema / env)
-  return new PrismaClient();
+  console.log("[Prisma] No Turso URL found, using default SQLite PrismaClient");
+  return new PrismaClient({
+    datasources: { db: { url: "file:./prisma/dev.db" } }
+  });
 }
 
 export type PrismaConnectionMode = "turso" | "sqlite";
