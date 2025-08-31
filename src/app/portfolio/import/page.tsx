@@ -46,13 +46,13 @@ const StatCard = ({
   };
 
   return (
-    <Card className="bg-gradient-to-br from-white to-gray-50/50 border-0 shadow-sm">
+    <Card className="bg-gradient-to-br from-neutral-900 to-neutral-800 border border-neutral-700 shadow-sm">
       <CardContent className="p-6">
         <div className="flex items-center justify-between">
           <div className="space-y-2">
-            <p className="text-sm font-medium text-gray-600">{title}</p>
+            <p className="text-sm font-medium text-neutral-400">{title}</p>
             <div className="space-y-1">
-              <p className="text-2xl font-bold text-gray-900">
+              <p className="text-2xl font-bold text-white">
                 {prefix}{typeof value === 'number' ? value.toLocaleString() : value}{suffix}
               </p>
               {change && (
@@ -158,29 +158,29 @@ export default function ImportPortfolioPage() {
   const totalPnlPct = useMemo(() => totalCost > 0 ? (totalPnl / totalCost) * 100 : 0, [totalPnl, totalCost]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white">
+    <div className="min-h-screen bg-gradient-to-br from-neutral-950 to-neutral-900">
       <div className="p-8">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Import Portfolio</h1>
-          <p className="text-gray-600">Upload your transaction data to track your portfolio performance</p>
+          <h1 className="text-3xl font-bold text-white mb-2">Import Portfolio</h1>
+          <p className="text-neutral-400">Upload your transaction data to track your portfolio performance</p>
         </div>
 
         {/* Upload Section */}
-        <Card className="mb-8 bg-gradient-to-br from-emerald-50 to-green-50 border-0 shadow-sm">
+        <Card className="mb-8 bg-gradient-to-br from-emerald-950/20 to-green-950/20 border border-emerald-800/20 shadow-sm">
           <CardContent className="p-8">
             <div className="flex items-center gap-3 mb-6">
               <div className="p-2 bg-emerald-100 rounded-lg">
                 <Upload className="h-5 w-5 text-emerald-600" />
               </div>
-              <h2 className="text-xl font-semibold text-gray-900">Upload Transaction Data</h2>
+              <h2 className="text-xl font-semibold text-white">Upload Transaction Data</h2>
             </div>
             
             <form className="grid gap-6 md:grid-cols-6 items-end" onSubmit={upload}>
               <div className="md:col-span-2 space-y-2">
-                <label className="text-sm font-medium text-gray-700">Select Account</label>
+                <label className="text-sm font-medium text-neutral-300">Select Account</label>
                 <select 
-                  className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all duration-200" 
+                  className="w-full px-4 py-3 bg-neutral-800 border border-neutral-700 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all duration-200 text-white" 
                   value={accountId} 
                   onChange={(e) => setAccountId(e.target.value)}
                 >
@@ -191,13 +191,13 @@ export default function ImportPortfolioPage() {
               </div>
               
               <div className="md:col-span-3 space-y-2">
-                <label className="text-sm font-medium text-gray-700">Transaction CSV File</label>
+                <label className="text-sm font-medium text-neutral-300">Transaction CSV File</label>
                 <div className="relative">
                   <input 
                     type="file" 
                     accept=".csv" 
                     onChange={(e) => setFile(e.target.files?.[0] || null)} 
-                    className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all duration-200 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100" 
+                    className="w-full px-4 py-3 bg-neutral-800 border border-neutral-700 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all duration-200 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 text-white" 
                   />
                 </div>
               </div>
@@ -214,9 +214,9 @@ export default function ImportPortfolioPage() {
             </form>
             
             {created != null && (
-              <div className="mt-6 p-4 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center gap-3">
-                <CheckCircle className="h-5 w-5 text-emerald-600" />
-                <span className="text-sm font-medium text-emerald-800">
+              <div className="mt-6 p-4 bg-emerald-950/50 border border-emerald-700/50 rounded-lg flex items-center gap-3">
+                <CheckCircle className="h-5 w-5 text-emerald-400" />
+                <span className="text-sm font-medium text-emerald-300">
                   Successfully imported {created} transactions
                 </span>
               </div>
@@ -256,13 +256,13 @@ export default function ImportPortfolioPage() {
             </div>
 
             {/* Portfolio Performance Chart */}
-            <Card className="mb-8 bg-gradient-to-br from-white to-gray-50/50 border-0 shadow-sm">
+            <Card className="mb-8 bg-gradient-to-br from-neutral-900 to-neutral-800 border border-neutral-700 shadow-sm">
               <CardContent className="p-8">
                 <div className="flex items-center gap-3 mb-6">
                   <div className="p-2 bg-emerald-100 rounded-lg">
                     <Activity className="h-5 w-5 text-emerald-600" />
                   </div>
-                  <h2 className="text-xl font-semibold text-gray-900">Portfolio Performance</h2>
+                  <h2 className="text-xl font-semibold text-white">Portfolio Performance</h2>
                 </div>
                 
                 <div className="h-80 w-full">
@@ -272,22 +272,23 @@ export default function ImportPortfolioPage() {
                         dataKey="t" 
                         axisLine={false}
                         tickLine={false}
-                        tick={{ fontSize: 12, fill: '#6B7280' }}
+                        tick={{ fontSize: 12, fill: '#9CA3AF' }}
                       />
                       <YAxis 
                         axisLine={false}
                         tickLine={false}
-                        tick={{ fontSize: 12, fill: '#6B7280' }}
+                        tick={{ fontSize: 12, fill: '#9CA3AF' }}
                         domain={["auto", "auto"]} 
                       />
                       <Tooltip 
                         formatter={(v: number | string) => [`$${Number(v).toFixed(2)}`, 'Portfolio Value']} 
                         labelFormatter={(l) => `Date: ${l}`}
                         contentStyle={{
-                          backgroundColor: 'white',
-                          border: '1px solid #E5E7EB',
+                          backgroundColor: '#1F2937',
+                          border: '1px solid #374151',
                           borderRadius: '8px',
-                          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                          color: '#F9FAFB'
                         }}
                       />
                       <Line 
@@ -308,54 +309,52 @@ export default function ImportPortfolioPage() {
 
         {/* Positions Table */}
         {positions.length > 0 && (
-            <Card className="bg-gradient-to-br from-white to-gray-50/50 border-0 shadow-sm">
-              <CardContent className="p-8">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="p-2 bg-emerald-100 rounded-lg">
-                    <FileText className="h-5 w-5 text-emerald-600" />
-                  </div>
-                <h2 className="text-xl font-semibold text-gray-900">Current Holdings</h2>
-              </div>
-              
-              <div className="overflow-x-auto">
+          <Card className="bg-gradient-to-br from-neutral-900 to-neutral-800 border border-neutral-700 shadow-sm">
+            <CardContent className="p-8">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-2 bg-emerald-100 rounded-lg">
+                  <FileText className="h-5 w-5 text-emerald-600" />
+                </div>
+                <h2 className="text-xl font-semibold text-white">Current Holdings</h2>
+              </div>              <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr className="border-b border-gray-200">
-                      <th className="text-left py-4 px-2 text-sm font-semibold text-gray-700">Symbol</th>
-                      <th className="text-right py-4 px-2 text-sm font-semibold text-gray-700">Quantity</th>
-                      <th className="text-right py-4 px-2 text-sm font-semibold text-gray-700">Avg Cost</th>
-                      <th className="text-right py-4 px-2 text-sm font-semibold text-gray-700">Total Cost</th>
-                      <th className="text-right py-4 px-2 text-sm font-semibold text-gray-700">Current Price</th>
-                      <th className="text-right py-4 px-2 text-sm font-semibold text-gray-700">Market Value</th>
-                      <th className="text-right py-4 px-2 text-sm font-semibold text-gray-700">P&L</th>
+                    <tr className="border-b border-neutral-700">
+                      <th className="text-left py-4 px-2 text-sm font-semibold text-neutral-300">Symbol</th>
+                      <th className="text-right py-4 px-2 text-sm font-semibold text-neutral-300">Quantity</th>
+                      <th className="text-right py-4 px-2 text-sm font-semibold text-neutral-300">Avg Cost</th>
+                      <th className="text-right py-4 px-2 text-sm font-semibold text-neutral-300">Total Cost</th>
+                      <th className="text-right py-4 px-2 text-sm font-semibold text-neutral-300">Current Price</th>
+                      <th className="text-right py-4 px-2 text-sm font-semibold text-neutral-300">Market Value</th>
+                      <th className="text-right py-4 px-2 text-sm font-semibold text-neutral-300">P&L</th>
                     </tr>
                   </thead>
                   <tbody>
                     {positions.map((position, index) => (
-                      <tr key={position.symbol} className={`border-b border-gray-100 ${index % 2 === 0 ? 'bg-gray-50/50' : 'bg-white'} hover:bg-emerald-50/50 transition-colors duration-200`}>
+                      <tr key={position.symbol} className={`border-b border-neutral-700 ${index % 2 === 0 ? 'bg-neutral-800/50' : 'bg-neutral-900/50'} hover:bg-emerald-950/30 transition-colors duration-200`}>
                         <td className="py-4 px-2">
-                          <div className="font-semibold text-gray-900">{position.symbol}</div>
+                          <div className="font-semibold text-white">{position.symbol}</div>
                         </td>
-                        <td className="py-4 px-2 text-right text-gray-700">
+                        <td className="py-4 px-2 text-right text-neutral-300">
                           {position.qty.toLocaleString()}
                         </td>
-                        <td className="py-4 px-2 text-right text-gray-700">
+                        <td className="py-4 px-2 text-right text-neutral-300">
                           ${position.avg.toFixed(2)}
                         </td>
-                        <td className="py-4 px-2 text-right text-gray-700">
+                        <td className="py-4 px-2 text-right text-neutral-300">
                           ${position.cost.toFixed(2)}
                         </td>
-                        <td className="py-4 px-2 text-right text-gray-700">
+                        <td className="py-4 px-2 text-right text-neutral-300">
                           {position.price != null ? `$${position.price.toFixed(2)}` : (
-                            <span className="text-gray-400 flex items-center justify-end gap-1">
+                            <span className="text-neutral-500 flex items-center justify-end gap-1">
                               <AlertCircle className="h-3 w-3" />
                               N/A
                             </span>
                           )}
                         </td>
-                        <td className="py-4 px-2 text-right text-gray-700">
+                        <td className="py-4 px-2 text-right text-neutral-300">
                           {position.value != null ? `$${position.value.toFixed(2)}` : (
-                            <span className="text-gray-400">—</span>
+                            <span className="text-neutral-500">—</span>
                           )}
                         </td>
                         <td className="py-4 px-2 text-right">
@@ -366,7 +365,7 @@ export default function ImportPortfolioPage() {
                               ) : (
                                 <TrendingDown className="h-3 w-3 text-red-600" />
                               )}
-                              <span className={position.pnl >= 0 ? "text-emerald-600 font-medium" : "text-red-600 font-medium"}>
+                              <span className={position.pnl >= 0 ? "text-emerald-400 font-medium" : "text-red-400 font-medium"}>
                                 {position.pnl >= 0 ? "+" : ""}${position.pnl.toFixed(2)}
                                 <br />
                                 <span className="text-xs">
@@ -375,7 +374,7 @@ export default function ImportPortfolioPage() {
                               </span>
                             </div>
                           ) : (
-                            <span className="text-gray-400">—</span>
+                            <span className="text-neutral-500">—</span>
                           )}
                         </td>
                       </tr>
