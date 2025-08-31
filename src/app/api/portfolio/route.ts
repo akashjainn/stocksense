@@ -1,4 +1,5 @@
 import { getMongoDb } from "@/lib/mongodb";
+import type { ObjectId } from "mongodb";
 import { buildProvider } from "@/lib/providers/prices";
 import dayjs from "dayjs";
 import { NextRequest, NextResponse } from "next/server";
@@ -12,12 +13,21 @@ export async function GET(req: NextRequest) {
     const db = await getMongoDb();
     const txCol = db.collection("transactions");
     const query = accountId ? { accountId } : {};
+    type Tx = {
+      _id: ObjectId;
+      accountId: string;
+      symbol?: string;
+      type: "BUY" | "SELL" | "DIV" | "CASH";
+      qty?: number | null;
+      price?: number | null;
+      tradeDate: Date;
+    };
     const txns = await txCol
       .find(query, { sort: { tradeDate: 1 }, projection: { _id: 0 } })
       .toArray();
   const holdings = new Map<string, { symbol: string; qty: number; cost: number }>();
   let cash = 0;
-    for (const t of txns as any[]) {
+  for (const t of txns as Tx[]) {
       if (t.type === "CASH") {
         cash += Number(t.price ?? 0);
         continue;

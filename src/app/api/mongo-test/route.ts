@@ -11,7 +11,8 @@ export async function GET() {
     const ping = await admin.ping();
     const info = await admin.serverInfo();
     return NextResponse.json({ ok: true, ping, info });
-  } catch (err: any) {
-    return NextResponse.json({ ok: false, error: err?.message || String(err) }, { status: 500 });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ ok: false, error: message }, { status: 500 });
   }
 }

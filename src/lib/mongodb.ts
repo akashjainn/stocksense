@@ -2,8 +2,7 @@ import { MongoClient, Db } from "mongodb";
 
 // Cached client across hot-reloads in dev and across route handlers in prod
 declare global {
-  // eslint-disable-next-line no-var
-  var _mongoClientPromise: Promise<MongoClient> | undefined;
+  var _mongoClientPromise: Promise<MongoClient> | undefined; // eslint-disable-line no-var
 }
 
 const uri = process.env.MONGODB_URI;

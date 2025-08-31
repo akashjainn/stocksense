@@ -35,8 +35,9 @@ export async function GET() {
     let writeTest = null;
     try {
       writeTest = await db.execute('SELECT datetime("now") as test_write_ts');
-    } catch (e: any) {
-      writeTest = { error: e.message };
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      writeTest = { error: msg };
     }
     
     return NextResponse.json({ 
@@ -46,12 +47,12 @@ export async function GET() {
       writeTest,
       url_preview: url.substring(0, 40) + '...'
     });
-  } catch (e: any) {
+  } catch (e) {
     console.error('[turso-diag] Error:', e);
+    const msg = e instanceof Error ? e.message : String(e);
     return NextResponse.json({ 
       ok: false, 
-      error: e.message,
-      code: e.code
+      error: msg
     }, { status: 500 });
   }
 }

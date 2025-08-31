@@ -1,14 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getMongoDb } from "@/lib/mongodb";
+import type { ObjectId, WithId } from "mongodb";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+type UserMinimal = { _id: ObjectId };
 
 async function ensureDemoUser() {
   const db = await getMongoDb();
   const users = db.collection("users");
   const email = "demo@stocksense.local";
-  const existing = await users.findOne<{ _id: any }>({ email }, { projection: { _id: 1 } });
+  const existing = await users.findOne<UserMinimal>({ email }, { projection: { _id: 1 } });
   if (existing?._id) return { id: String(existing._id) };
   const ins = await users.insertOne({ email, name: "Demo User", createdAt: new Date() });
   if (!ins.insertedId) throw new Error("Failed to create or find demo user.");
@@ -22,8 +25,9 @@ export async function GET() {
     const cursor = accountsCol
       .find({}, { projection: { name: 1, userId: 1, baseCcy: 1, createdAt: 1 } })
       .sort({ createdAt: 1 });
-    const docs = await cursor.toArray();
-    const accounts = docs.map((d: any) => ({
+  type AccountDoc = { _id: ObjectId; name: string; userId?: string; baseCcy?: string; createdAt?: Date };
+  const docs: WithId<AccountDoc>[] = await cursor.toArray() as WithId<AccountDoc>[];
+  const accounts = docs.map((d) => ({
       id: String(d._id),
       name: d.name,
       userId: d.userId,
