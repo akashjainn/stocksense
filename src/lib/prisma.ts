@@ -32,43 +32,48 @@ function makePrisma(): PrismaClient {
 
   if (url) {
     try {
-      // Minimal visibility without leaking secrets
       console.log(`[Prisma] Turso adapter init. url? ${Boolean(url)} libsql? ${url.startsWith("libsql://")} token? ${Boolean(token)}`);
       console.log(`[Prisma] URL length: ${url.length}, first 30 chars: ${url.substring(0, 30)}...`);
       const libsql = createLibsqlClient({ url, authToken: token });
-      // Cast due to types mismatch between adapter/client versions
       const adapter = new PrismaLibSQL(libsql as unknown as never);
       const client = new PrismaClient({ adapter } as unknown as Record<string, unknown> as never);
       console.log("[Prisma] Successfully created Turso adapter client");
       return client;
     } catch (e) {
-      // Fallback to default Prisma if Turso init fails (e.g., URL_INVALID)
       console.error("[Prisma] Turso adapter failed, falling back to SQLite PrismaClient:", (e as Error)?.message);
-      // Ensure no env var pollution for fallback
-      return new PrismaClient({
-        datasources: { db: { url: "file:./prisma/dev.db" } }
-      });
+      return new PrismaClient({ datasources: { db: { url: "file:./prisma/dev.db" } } });
     }
   }
 
-  // Default: regular PrismaClient (uses sqlite file from schema / env)
+  // Default: SQLite client pointing to local file to avoid env dependency
   console.log("[Prisma] No Turso URL found, using default SQLite PrismaClient");
-  return new PrismaClient({
-    datasources: { db: { url: "file:./prisma/dev.db" } }
-  });
+  return new PrismaClient({ datasources: { db: { url: "file:./prisma/dev.db" } } });
 }
 
 export type PrismaConnectionMode = "turso" | "sqlite";
 let mode: PrismaConnectionMode = "sqlite";
 
-function makeTrackedPrisma(): PrismaClient {
-  const { url } = (resolveTursoEnv?.() ?? { url: undefined });
-  if (url) mode = "turso"; else mode = "sqlite";
-  return makePrisma();
+let prismaInstance: PrismaClient | undefined;
+function getOrCreatePrisma(): PrismaClient {
+  if (!prismaInstance) {
+    const { url } = (resolveTursoEnv?.() ?? { url: undefined });
+    mode = url ? "turso" : "sqlite";
+    prismaInstance = makePrisma();
+  }
+  return prismaInstance;
 }
 
 export const prismaMode = () => mode;
 
-const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
-export const prisma: PrismaClient = globalForPrisma.prisma ?? makeTrackedPrisma();
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+// Lazy proxy: construct PrismaClient on first property access
+export const prisma: PrismaClient = new Proxy({} as PrismaClient, {
+  get(_target, prop) {
+    const client = getOrCreatePrisma() as unknown as Record<string, unknown>;
+    const val = client[prop as string];
+    // Bind methods to the underlying client
+    if (typeof val === "function") {
+      return (val as Function).bind(client);
+    }
+    return val;
+  },
+}) as unknown as PrismaClient;
