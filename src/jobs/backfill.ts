@@ -1,5 +1,5 @@
 #!/usr/bin/env tsx
-import { prisma } from "../lib/db";
+import { prisma } from "../lib/prisma";
 import { getMarketProvider } from "../lib/market/providers";
 
 async function main() {

@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { prisma } from "@/lib/db";
+import { prisma } from "@/lib/prisma";
 import { buildProvider } from "@/lib/providers/prices";
 import { getTop30Tickers } from "@/lib/benchmarks/top30";
 

@@ -1,6 +1,6 @@
 import { Queue, Worker, Job, QueueOptions, WorkerOptions } from "bullmq";
 import { getRedis } from "./redis";
-import { prisma } from "@/lib/db";
+import { prisma } from "@/lib/prisma";
 import { buildProvider } from "./providers/prices";
 import dayjs from "dayjs";
 

@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/db";
+import { prisma } from "@/lib/prisma";
 import { buildProvider } from "@/lib/providers/prices";
 import { getDailyBars } from "@/lib/market/providers/alpaca";
 import dayjs from "dayjs";

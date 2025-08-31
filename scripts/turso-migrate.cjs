@@ -1,9 +1,10 @@
 // Simple migration applier for Turso/libSQL using the Prisma migration SQL
+require('dotenv').config();
 const { createClient } = require('@libsql/client');
 const fs = require('fs');
 const path = require('path');
 
-const url = process.env.DATABASE_URL;
+const url = process.env.TURSO_DATABASE_URL || process.env.DATABASE_URL;
 let authToken = process.env.TURSO_AUTH_TOKEN;
 
 if (!url || !url.startsWith('libsql://')) {

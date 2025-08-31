@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/db";
+import { prisma } from "@/lib/prisma";
 import { buildProvider } from "@/lib/providers/prices";
 import dayjs from "dayjs";
 import { NextRequest, NextResponse } from "next/server";

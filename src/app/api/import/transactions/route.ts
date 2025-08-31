@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import Papa from "papaparse";
-import { prisma } from "@/lib/db";
+import { prisma } from "@/lib/prisma";
 import dayjs from "dayjs";
 import customParseFormat from "dayjs/plugin/customParseFormat";
 

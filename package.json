@@ -5,14 +5,14 @@
   "scripts": {
     "dev": "next dev",
     "dev-turbo": "next dev --turbopack",
-  "build": "prisma generate && next build",
+    "build": "prisma generate && next build",
     "start": "next start",
     "lint": "eslint",
     "postinstall": "prisma generate",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev --name init",
     "db:seed": "prisma db seed",
-  "db:turso:apply": "node scripts/turso-migrate.cjs",
+    "db:turso:apply": "node scripts/turso-migrate.cjs",
     "jobs:backfill": "tsx src/jobs/backfill.ts",
     "jobs:eod": "tsx src/jobs/refresh-eod.ts"
   },
