@@ -78,6 +78,8 @@ export default function ImportPortfolioPage() {
   const [created, setCreated] = useState<number | null>(null);
   const [positions, setPositions] = useState<Position[]>([]);
   const [equityCurve, setEquityCurve] = useState<{ t: string; v: number }[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/accounts").then((r) => r.json()).then((j) => {
@@ -86,70 +88,70 @@ export default function ImportPortfolioPage() {
         fetch("/api/accounts", { method: "POST" }).then((r) => r.json()).then((k) => {
           setAccounts([k.data]);
           setAccountId(k.data.id);
+          // Populate any existing portfolio state
+          buildPositions();
         });
       } else {
         setAccounts(list);
         setAccountId(list[0].id);
+        // Populate portfolio for first account
+        buildPositions();
       }
     });
   }, []);
 
   async function upload(e: React.FormEvent) {
     e.preventDefault();
+    setError(null);
     if (!file || !accountId) return;
-    const fd = new FormData();
-    fd.append("file", file);
-    fd.append("accountId", accountId);
-    const res = await fetch("/api/import/transactions", { method: "POST", body: fd });
-    const j = await res.json();
-    setCreated(j.created ?? 0);
-    await buildPositions();
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("accountId", accountId);
+      const res = await fetch("/api/import/transactions", { method: "POST", body: fd });
+      if (!res.ok) {
+        const txt = await res.text();
+        throw new Error(txt || `Import failed (${res.status})`);
+      }
+      const j = await res.json();
+      setCreated(j.created ?? 0);
+      await buildPositions();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong");
+    } finally {
+      setUploading(false);
+    }
   }
 
-  async function buildPositions() {
-    // Fetch transactions and quotes; compute simple FIFO and current valuation client-side for now
-    const tx = await fetch("/api/transactions").then((r) => r.json() as Promise<{ data: {
-      id: string; accountId: string; symbol?: string | null; type: string; qty: number | null; price: number | null; tradeDate: string;
-    }[] }>);
-    const txns = (tx.data || []).filter((t) => t.accountId === accountId);
-    const bySymbol: Record<string, { type: "BUY" | "SELL"; qty: number; price: number }[]> = {};
-    for (const t of txns) {
-      const sym = (t.symbol || "").toString();
-      if (!sym) continue;
-      bySymbol[sym] ||= [];
-      if (t.type === "BUY" || t.type === "SELL") bySymbol[sym].push({ type: t.type, qty: Number(t.qty || 0), price: Number(t.price || 0) });
+  async function buildPositions(id?: string) {
+    // Prefer server-side computation for positions and equity curve for accuracy
+    try {
+  const acct = id ?? accountId;
+  if (!acct) return;
+  const res = await fetch(`/api/portfolio?accountId=${encodeURIComponent(acct)}`);
+      if (!res.ok) throw new Error(`Failed to load portfolio: ${res.status}`);
+      const data = await res.json() as {
+        positions: Array<{ symbol: string; qty: number; cost: number; price?: number; value?: number; pnl?: number; pnlPct?: number }>;
+        equityCurve: { t: string; v: number }[];
+      };
+      const pos: Position[] = (data.positions || []).map(p => ({
+        symbol: p.symbol,
+        qty: p.qty,
+        cost: p.cost,
+        avg: p.qty > 0 ? p.cost / p.qty : 0,
+        price: p.price,
+        value: p.value,
+        pnl: p.pnl,
+        pnlPct: p.pnlPct,
+      }));
+      setPositions(pos);
+      setEquityCurve(data.equityCurve || []);
+    } catch (e) {
+      // Fallback to empty state on error
+      setPositions([]);
+      setEquityCurve([]);
     }
-    const syms = Object.keys(bySymbol).filter(Boolean);
-    // Get prices
-    let quotes: Record<string, { price: number }> = {};
-    if (syms.length) {
-      const q = await fetch(`/api/quotes?symbols=${encodeURIComponent(syms.join(","))}`).then((r) => r.json()).catch(() => ({ data: {} }));
-      quotes = q.data || {};
-    }
-    const pos: Position[] = syms.map((s) => {
-      // simple FIFO avg
-      let remaining = 0;
-      let totalCost = 0;
-      for (const t of bySymbol[s]) {
-        if (t.type === "BUY") { remaining += t.qty || 0; totalCost += (t.qty || 0) * (t.price || 0); }
-        if (t.type === "SELL") { remaining -= t.qty || 0; /* reduce cost proportionally */ totalCost = Math.max(0, totalCost - (t.qty || 0) * (t.price || 0)); }
-      }
-      const avg = remaining > 0 ? totalCost / remaining : 0;
-      const price = quotes[s]?.price;
-      const value = price != null ? remaining * price : undefined;
-      const pnl = value != null ? value - totalCost : undefined;
-      const pnlPct = pnl != null && totalCost > 0 ? (pnl / totalCost) * 100 : undefined;
-      return { symbol: s, qty: remaining, avg, cost: totalCost, price, value, pnl, pnlPct };
-    });
-    setPositions(pos);
-    // Placeholder equity curve: sum of values; in a real flow we’d compute over time from historical prices
-    const today = new Date();
-    const arr = Array.from({ length: 30 }, (_, i) => {
-      const d = new Date(today); d.setDate(d.getDate() - (29 - i));
-      const v = pos.reduce((sum, p) => sum + (p.value ?? 0), 0) * (1 + Math.sin(i / 7) * 0.01);
-      return { t: d.toISOString().slice(0, 10), v };
-    });
-    setEquityCurve(arr);
   }
 
   const totalValue = useMemo(() => positions.reduce((s, p) => s + (p.value ?? 0), 0), [positions]);
@@ -182,7 +184,7 @@ export default function ImportPortfolioPage() {
                 <select 
                   className="w-full px-4 py-3 bg-neutral-800 border border-neutral-700 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all duration-200 text-white" 
                   value={accountId} 
-                  onChange={(e) => setAccountId(e.target.value)}
+                  onChange={async (e) => { const id = e.target.value; setAccountId(id); await buildPositions(id); }}
                 >
                   {accounts.map((a) => (
                     <option key={a.id} value={a.id}>{a.name}</option>
@@ -205,14 +207,21 @@ export default function ImportPortfolioPage() {
               <div className="md:col-span-1">
                 <Button 
                   type="submit" 
-                  className="w-full py-3 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white font-medium rounded-lg transition-all duration-200 shadow-sm"
-                  disabled={!file || !accountId}
+                  className="w-full py-3 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white font-medium rounded-lg transition-all duration-200 shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                  disabled={!file || !accountId || uploading}
                 >
-                  Import
+                  {uploading ? "Importing…" : "Import"}
                 </Button>
               </div>
             </form>
             
+            {error && (
+              <div className="mt-6 p-4 bg-red-950/50 border border-red-700/50 rounded-lg flex items-center gap-3">
+                <AlertCircle className="h-5 w-5 text-red-400" />
+                <span className="text-sm font-medium text-red-300">{error}</span>
+              </div>
+            )}
+
             {created != null && (
               <div className="mt-6 p-4 bg-emerald-950/50 border border-emerald-700/50 rounded-lg flex items-center gap-3">
                 <CheckCircle className="h-5 w-5 text-emerald-400" />
