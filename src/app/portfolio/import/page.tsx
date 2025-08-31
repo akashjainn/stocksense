@@ -208,6 +208,33 @@ export default function ImportPortfolioPage() {
                     ))
                   )}
                 </select>
+                {!accountsLoading && accounts.length === 0 && (
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      className="px-3 py-2 bg-neutral-700 hover:bg-neutral-600 text-white rounded-md text-sm"
+                      onClick={async () => {
+                        setError(null);
+                        try {
+                          const res = await fetch('/api/accounts', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ name: 'My Portfolio' }),
+                          });
+                          if (!res.ok) throw new Error(`Create account failed (${res.status})`);
+                          const j = await res.json();
+                          setAccounts([j.data]);
+                          setAccountId(j.data.id);
+                          await buildPositions(j.data.id);
+                        } catch (e) {
+                          setError(e instanceof Error ? e.message : 'Failed to create account');
+                        }
+                      }}
+                    >
+                      Create Account
+                    </Button>
+                  </div>
+                )}
               </div>
               
               <div className="md:col-span-3 space-y-2">
