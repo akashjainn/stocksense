@@ -13,7 +13,7 @@ type Row = Partial<{
 export const dynamic = "force-dynamic";
 
 // Function to normalize header keys
-const normalizeKey = (key: string) => key.trim().toLowerCase().replace(/ /g, '');
+const normalizeKey = (key: string) => key.trim().toLowerCase().replace(/\s+/g, '');
 
 // Function to parse date with multiple formats
 const parseDate = (dateStr: string) => {
@@ -28,6 +28,27 @@ const parseDate = (dateStr: string) => {
   ];
   const date = dayjs(dateStr, formats, true);
   return date.isValid() ? date.toDate() : null;
+};
+
+// Parse money like "$59.84" or "($59.84)" or "$0.01" into signed number
+const parseMoney = (s?: string) => {
+  if (!s) return undefined;
+  const str = s.toString().trim();
+  const negative = /\(.*\)/.test(str);
+  const cleaned = str.replace(/[()$,\s]/g, "");
+  const n = cleaned ? Number(cleaned) : NaN;
+  if (Number.isNaN(n)) return undefined;
+  return negative ? -n : n;
+};
+
+// Map CSV transaction codes to our internal types
+const mapType = (code?: string) => {
+  if (!code) return undefined;
+  const c = code.trim().toUpperCase();
+  if (c === 'BUY' || c === 'SELL') return c as 'BUY' | 'SELL';
+  // Cash-like activities
+  if (['CDIV','SLIP','ACH','RTP','INT','CIL'].includes(c)) return 'CASH' as const;
+  return undefined;
 };
 
 export async function POST(req: NextRequest) {
@@ -52,43 +73,69 @@ export async function POST(req: NextRequest) {
   let created = 0;
 
   for (const r of rows) {
-    const symbol = (r.symbol || r.ticker || "").trim().toUpperCase();
-    const type = (r.type || r.transactiontype || "").trim().toUpperCase();
-    const qStr = (r.qty || r.quantity || r.shares || "").toString().trim();
-    const pStr = (r.price || r.costpershare || "").toString().trim();
-    const feeStr = (r.fee || r.commission || "").toString().trim();
-    const dateStr = (r.tradedate || r.date || "").toString().trim();
-    
-    const tradeDate = parseDate(dateStr);
+    // Header aliases
+    const symbolRaw = (r.symbol || r.ticker || r.instrument || "");
+    const typeRaw = (r.type || r.transactiontype || r.transcode || "");
+    const qStr = (r.qty || r.quantity || r.shares || "").toString();
+    const pStr = (r.price || r.costpershare || "").toString();
+    const amountStr = (r.amount || "").toString();
+    const feeStr = (r.fee || r.commission || "").toString();
+    const dateStr = (r.tradedate || r.date || r.activitydate || "").toString();
 
-    if (!type || !tradeDate) continue;
-    
-    if (!["BUY", "SELL", "DIV", "CASH"].includes(type)) continue;
-    
+    const tradeDate = parseDate(dateStr);
+    const mappedType = mapType(typeRaw);
+    if (!mappedType || !tradeDate) continue;
+
+    const symbol = symbolRaw.toString().trim().toUpperCase();
     let secId: string | undefined;
     if (symbol) {
-      const sec = await prisma.security.upsert({ 
-        where: { symbol }, 
-        update: {}, 
-        create: { symbol, name: symbol } 
+      const sec = await prisma.security.upsert({
+        where: { symbol },
+        update: {},
+        create: { symbol, name: symbol },
       });
       secId = sec.id;
     }
-    
+
     const qty = qStr ? parseFloat(qStr.replace(/,/g, '')) : undefined;
-    const price = pStr ? parseFloat(pStr.replace(/[^0-9.-]+/g, "")) : undefined;
+    let price = pStr ? parseFloat(pStr.replace(/[^0-9.-]+/g, "")) : undefined;
     const fee = feeStr ? parseFloat(feeStr.replace(/[^0-9.-]+/g, "")) : undefined;
-    
+    const amount = parseMoney(amountStr);
+
+    if (mappedType === 'CASH') {
+      // For cash-like events use the signed amount
+      if (amount == null || amount === 0) continue;
+      await prisma.transaction.create({
+        data: {
+          accountId,
+          securityId: null, // cash not tied to a security
+          type: 'CASH',
+          qty: null,
+          price: amount,
+          fee: fee ?? null,
+          tradeDate,
+          notes: (r.description as string) || null,
+        },
+      });
+      created++;
+      continue;
+    }
+
+    // BUY/SELL: if price missing, back-calc from amount and qty
+    if ((price == null || Number.isNaN(price)) && amount != null && qty && qty !== 0) {
+      price = Math.abs(amount / qty);
+    }
+
     await prisma.transaction.create({
       data: {
         accountId,
         securityId: secId,
-        type,
+        type: mappedType,
         qty: qty ?? null,
         price: price ?? null,
         fee: fee ?? null,
         tradeDate,
-        notes: r.notes || null,
+        notes: (r.description as string) || null,
       },
     });
     created++;
