@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import Papa from "papaparse";
 import type { ParseError } from "papaparse";
-import { prisma } from "@/lib/prisma";
+import { getMongoDb } from "@/lib/mongodb";
 import dayjs from "dayjs";
 import customParseFormat from "dayjs/plugin/customParseFormat";
 
@@ -11,6 +11,7 @@ type Row = Partial<{
   [key: string]: string | undefined;
 }>;
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 // Function to normalize header keys
@@ -81,6 +82,9 @@ export async function POST(req: NextRequest) {
   // Keep only rows that look like real transactions (have a date and some descriptor)
   const rows = (parsed.data || []).filter(r => r && (r["activity date"] || r.activitydate || r.date) && (r.description || r.instrument || r.transcode || r.type));
   let created = 0;
+  const db = await getMongoDb();
+  const txCol = db.collection("transactions");
+  const secCol = db.collection("securities");
 
   for (const r of rows) {
     // Header aliases
@@ -99,12 +103,13 @@ export async function POST(req: NextRequest) {
     const symbol = symbolRaw.toString().trim().toUpperCase();
     let secId: string | undefined;
     if (symbol) {
-      const sec = await prisma.security.upsert({
-        where: { symbol },
-        update: {},
-        create: { symbol, name: symbol },
-      });
-      secId = sec.id;
+      const sec = await secCol.findOneAndUpdate(
+        { symbol },
+        { $setOnInsert: { symbol, name: symbol, createdAt: new Date() } },
+        { upsert: true, returnDocument: "after", projection: { _id: 1 } }
+      );
+      const idVal = sec?.value?._id;
+      if (idVal) secId = String(idVal);
     }
 
     const qty = qStr ? parseFloat(qStr.replace(/,/g, '')) : undefined;
@@ -115,17 +120,17 @@ export async function POST(req: NextRequest) {
     if (mappedType === 'CASH') {
       // For cash-like events use the signed amount
       if (amount == null || amount === 0) continue;
-      await prisma.transaction.create({
-        data: {
-          accountId,
-          securityId: null, // cash not tied to a security
-          type: 'CASH',
-          qty: null,
-          price: amount,
-          fee: fee ?? null,
-          tradeDate,
-          notes: (r.description as string) || null,
-        },
+      await txCol.insertOne({
+        accountId,
+        securityId: null,
+        symbol: symbol || undefined,
+        type: 'CASH',
+        qty: null,
+        price: amount,
+        fee: fee ?? null,
+        tradeDate,
+        notes: (r.description as string) || null,
+        createdAt: new Date(),
       });
       created++;
       continue;
@@ -136,17 +141,17 @@ export async function POST(req: NextRequest) {
       price = Math.abs(amount / qty);
     }
 
-    await prisma.transaction.create({
-      data: {
-        accountId,
-        securityId: secId,
-        type: mappedType,
-        qty: qty ?? null,
-        price: price ?? null,
-        fee: fee ?? null,
-        tradeDate,
-        notes: (r.description as string) || null,
-      },
+    await txCol.insertOne({
+      accountId,
+      securityId: secId ?? null,
+      symbol: symbol || undefined,
+      type: mappedType,
+      qty: qty ?? null,
+      price: price ?? null,
+      fee: fee ?? null,
+      tradeDate,
+      notes: (r.description as string) || null,
+      createdAt: new Date(),
     });
     created++;
   }
