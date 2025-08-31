@@ -28,7 +28,7 @@ export async function GET() {
     return Response.json({ data: accounts });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Unknown database error";
-    return new Response(`Accounts query failed: ${msg}`, { status: 500 });
+  return Response.json({ error: "Accounts query failed", detail: msg }, { status: 500 });
   }
 }
 
@@ -41,6 +41,6 @@ export async function POST(req: NextRequest) {
     return Response.json({ ok: true, data: acct });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Unknown database error";
-    return new Response(`Account creation failed: ${msg}`, { status: 500 });
+  return Response.json({ error: "Account creation failed", detail: msg }, { status: 500 });
   }
 }

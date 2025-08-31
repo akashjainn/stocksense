@@ -4,6 +4,9 @@ import { getDailyBars } from "@/lib/market/providers/alpaca";
 import dayjs from "dayjs";
 import { NextRequest } from "next/server";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 export async function GET(req: NextRequest) {
   const accountId = req.nextUrl.searchParams.get("accountId") || undefined;
   const period = req.nextUrl.searchParams.get("period") || "6M"; // 1M, 3M, 6M, 1Y, ALL
@@ -59,8 +62,9 @@ export async function GET(req: NextRequest) {
     });
 
   } catch (error) {
-    console.error("Error fetching portfolio history:", error);
-    return Response.json({ error: "Failed to fetch portfolio history" }, { status: 500 });
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error("Error fetching portfolio history:", msg);
+    return Response.json({ error: "Failed to fetch portfolio history", detail: msg }, { status: 500 });
   }
 }
 

@@ -2,6 +2,9 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { z } from "zod";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 const Txn = z.object({
   accountId: z.string(),
   symbol: z.string().optional(),
@@ -14,30 +17,35 @@ const Txn = z.object({
 });
 
 export async function POST(req: NextRequest) {
-  const body = await req.json();
-  const data = Txn.parse(body);
-  let secId: string | undefined;
-  if (data.symbol) {
-    const sec = await prisma.security.upsert({
-      where: { symbol: data.symbol },
-      update: {},
-      create: { symbol: data.symbol, name: data.symbol },
+  try {
+    const body = await req.json();
+    const data = Txn.parse(body);
+    let secId: string | undefined;
+    if (data.symbol) {
+      const sec = await prisma.security.upsert({
+        where: { symbol: data.symbol },
+        update: {},
+        create: { symbol: data.symbol, name: data.symbol },
+      });
+      secId = sec.id;
+    }
+    const rec = await prisma.transaction.create({
+      data: {
+        accountId: data.accountId,
+        securityId: secId,
+        type: data.type,
+        qty: data.qty ?? null,
+        price: data.price ?? null,
+        fee: data.fee ?? null,
+        tradeDate: new Date(data.tradeDate),
+        notes: data.notes,
+      },
     });
-    secId = sec.id;
+    return Response.json({ ok: true, id: rec.id });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Unknown error";
+    return Response.json({ error: "Transaction create failed", detail: msg }, { status: 500 });
   }
-  const rec = await prisma.transaction.create({
-    data: {
-      accountId: data.accountId,
-      securityId: secId,
-      type: data.type,
-      qty: data.qty ?? null,
-      price: data.price ?? null,
-      fee: data.fee ?? null,
-      tradeDate: new Date(data.tradeDate),
-      notes: data.notes,
-    },
-  });
-  return Response.json({ ok: true, id: rec.id });
 }
 
 export async function GET() {

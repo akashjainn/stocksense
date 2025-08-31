@@ -3,13 +3,17 @@ import { buildProvider } from "@/lib/providers/prices";
 import dayjs from "dayjs";
 import { NextRequest } from "next/server";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 export async function GET(req: NextRequest) {
   const accountId = req.nextUrl.searchParams.get("accountId") || undefined;
-  const txns = await prisma.transaction.findMany({
-    where: accountId ? { accountId } : undefined,
-    orderBy: { tradeDate: "asc" },
-    include: { security: true },
-  });
+  try {
+    const txns = await prisma.transaction.findMany({
+      where: accountId ? { accountId } : undefined,
+      orderBy: { tradeDate: "asc" },
+      include: { security: true },
+    });
   const holdings = new Map<string, { symbol: string; qty: number; cost: number }>();
   let cash = 0;
   for (const t of txns) {
@@ -105,5 +109,9 @@ export async function GET(req: NextRequest) {
     curve.push({ t: d, v });
   }
 
-  return Response.json({ cash, totalCost, totalValue: totalEquity, positions: enriched, equityCurve: curve });
+    return Response.json({ cash, totalCost, totalValue: totalEquity, positions: enriched, equityCurve: curve });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Unknown error";
+    return Response.json({ error: "Portfolio fetch failed", detail: msg }, { status: 500 });
+  }
 }
