@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import fs from "fs";
 import path from "path";
@@ -50,6 +51,16 @@ async function ensureSchema() {
   }
 }
 
+function shouldBootstrapSchema(err: unknown): boolean {
+  const url = process.env.DATABASE_URL || "";
+  if (!url.startsWith("file:")) return false; // only auto-bootstrap for SQLite
+  const msg = err instanceof Error ? err.message : String(err);
+  // Prisma code P2021: table does not exist
+  const isP2021 =
+    typeof err === "object" && err !== null && "code" in err && (err as Prisma.PrismaClientKnownRequestError).code === "P2021";
+  return /no such table/i.test(msg) || /does not exist/i.test(msg) || Boolean(isP2021);
+}
+
 export async function GET() {
   try {
     const accounts = await prisma.portfolioAccount.findMany({ orderBy: { createdAt: "asc" } });
@@ -57,7 +68,7 @@ export async function GET() {
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Unknown database error";
     console.error("[/api/accounts] GET failed:", e);
-    if (/no such table/i.test(msg)) {
+  if (shouldBootstrapSchema(e)) {
       await ensureSchema();
       try {
         const accounts = await prisma.portfolioAccount.findMany({ orderBy: { createdAt: "asc" } });
@@ -94,7 +105,7 @@ export async function POST(req: NextRequest) {
     const msg = e instanceof Error ? e.message : "Unknown database error";
     const cause = typeof e === "object" && e && "code" in e ? (e as { code?: string }).code : undefined;
     console.error("[/api/accounts] POST failed:", e);
-    if (/no such table/i.test(String(msg))) {
+  if (shouldBootstrapSchema(e)) {
       await ensureSchema();
       try {
         const body = (await req.json().catch(() => ({}))) as { name?: string };
