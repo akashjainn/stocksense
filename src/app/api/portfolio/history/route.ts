@@ -273,6 +273,7 @@ async function getCurrentPrices(symbols: string[]) {
   return prices;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function calculateCurrentTotals(holdings: Map<string, any>, currentPrices: Map<string, number>) {
   let totalValue = 0;
   let totalCost = 0;
