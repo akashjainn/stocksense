@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { getMongoDb } from "@/lib/mongodb";
 import { buildProvider } from "@/lib/providers/prices";
 import { getTop30Tickers } from "@/lib/benchmarks/top30";
 
@@ -8,19 +8,22 @@ function pct(a?: number, b?: number) {
   return ((a - b) / b) * 100;
 }
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 export async function GET(req: NextRequest) {
   const accountId = req.nextUrl.searchParams.get("accountId") || undefined;
   // Build current portfolio snapshot similar to /api/portfolio
-  const txns = await prisma.transaction.findMany({
-    where: accountId ? { accountId } : undefined,
-    orderBy: { tradeDate: "asc" },
-    include: { security: true },
-  });
+  const db = await getMongoDb();
+  const txns = await db
+    .collection("transactions")
+    .find(accountId ? { accountId } : {}, { sort: { tradeDate: 1 } })
+    .toArray();
   const holdings = new Map<string, { symbol: string; qty: number; cost: number }>();
   let cash = 0;
-  for (const t of txns) {
+  for (const t of txns as any[]) {
     if (t.type === "CASH") { cash += Number(t.price ?? 0); continue; }
-    const sym = t.security?.symbol; if (!sym) continue;
+    const sym: string | undefined = t.symbol; if (!sym) continue;
     const qty = t.qty != null ? Number(t.qty) : 0;
     const px = t.price != null ? Number(t.price) : 0;
     const h = holdings.get(sym) || { symbol: sym, qty: 0, cost: 0 };
@@ -33,18 +36,8 @@ export async function GET(req: NextRequest) {
 
   const latestBySymbol: Record<string, number> = {};
   if (symbols.length) {
-    const latest = await prisma.price.findMany({
-      where: { security: { symbol: { in: symbols } } },
-      orderBy: [{ securityId: "asc" }, { asOf: "desc" }],
-      take: symbols.length,
-      include: { security: true },
-    });
-    for (const p of latest) latestBySymbol[p.security.symbol] = Number(p.close);
-    const missing = symbols.filter((s) => latestBySymbol[s] == null);
-    if (missing.length) {
-      const list = await buildProvider().getQuote(missing);
-      for (const q of list) if (q.price != null) latestBySymbol[q.symbol] = q.price;
-    }
+    const list = await buildProvider().getQuote(symbols);
+    for (const q of list) if (q.price != null) latestBySymbol[q.symbol] = q.price;
   }
 
   const enriched = positions.map((p) => {

@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+import { getMongoDb } from "@/lib/mongodb";
 import { buildProvider } from "@/lib/providers/prices";
 import { getDailyBars } from "@/lib/market/providers/alpaca";
 import dayjs from "dayjs";
@@ -13,18 +13,18 @@ export async function GET(req: NextRequest) {
   
   try {
     // Get all transactions for the account
-    const txns = await prisma.transaction.findMany({
-      where: accountId ? { accountId } : undefined,
-      orderBy: { tradeDate: "asc" },
-      include: { security: true },
-    });
+    const db = await getMongoDb();
+    const txns = await db
+      .collection("transactions")
+      .find(accountId ? { accountId } : {}, { sort: { tradeDate: 1 } })
+      .toArray();
 
     // Calculate portfolio composition over time
     const portfolioHistory = calculatePortfolioHistory(txns);
     
     // Get historical prices for current holdings
     const currentHoldings = getCurrentHoldings(txns);
-    const symbols = Array.from(currentHoldings.keys());
+  const symbols = Array.from(currentHoldings.keys());
     
     if (symbols.length === 0) {
         return NextResponse.json({
@@ -48,8 +48,8 @@ export async function GET(req: NextRequest) {
     const benchmarkData = await getBenchmarkData(fromDate, toDate);
     
     // Calculate current totals
-    const currentPrices = await getCurrentPrices(symbols);
-    const { totalValue, totalCost, totalPnl, totalPnlPct } = calculateCurrentTotals(currentHoldings, currentPrices);
+  const currentPrices = await getCurrentPrices(symbols);
+  const { totalValue, totalCost, totalPnl, totalPnlPct } = calculateCurrentTotals(currentHoldings, currentPrices);
 
       return NextResponse.json({
       portfolioHistory: portfolioValues,

@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+import { getMongoDb } from "@/lib/mongodb";
 import { buildProvider } from "@/lib/providers/prices";
 import dayjs from "dayjs";
 import { NextRequest, NextResponse } from "next/server";
@@ -9,19 +9,20 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   const accountId = req.nextUrl.searchParams.get("accountId") || undefined;
   try {
-    const txns = await prisma.transaction.findMany({
-      where: accountId ? { accountId } : undefined,
-      orderBy: { tradeDate: "asc" },
-      include: { security: true },
-    });
+    const db = await getMongoDb();
+    const txCol = db.collection("transactions");
+    const query = accountId ? { accountId } : {};
+    const txns = await txCol
+      .find(query, { sort: { tradeDate: 1 }, projection: { _id: 0 } })
+      .toArray();
   const holdings = new Map<string, { symbol: string; qty: number; cost: number }>();
   let cash = 0;
-  for (const t of txns) {
-    if (t.type === "CASH") {
-      cash += Number(t.price ?? 0);
-      continue;
-    }
-    const sym = t.security?.symbol;
+    for (const t of txns as any[]) {
+      if (t.type === "CASH") {
+        cash += Number(t.price ?? 0);
+        continue;
+      }
+      const sym: string | undefined = t.symbol; // stored directly in Mongo tx
     if (!sym) continue;
     const qty = t.qty != null ? Number(t.qty) : 0;
     const px = t.price != null ? Number(t.price) : 0;
@@ -59,19 +60,9 @@ export async function GET(req: NextRequest) {
   
   // Try to use latest stored price; fallback to provider quote
   const latestBySymbol: Record<string, number> = {};
-  if (symbols.length) {
-    const latest = await prisma.price.findMany({
-      where: { security: { symbol: { in: symbols } } },
-      orderBy: [{ securityId: "asc" }, { asOf: "desc" }],
-      take: symbols.length, // heuristic: one per symbol
-      include: { security: true },
-    });
-    for (const p of latest) latestBySymbol[p.security.symbol] = Number(p.close);
-    // Fill missing via provider
-    const missing = symbols.filter((s) => latestBySymbol[s] == null);
-    if (missing.length) {
+    if (symbols.length) {
       try {
-        const list = await buildProvider().getQuote(missing as string[]);
+        const list = await buildProvider().getQuote(symbols as string[]);
         for (const q of list) {
           if (q.price != null) latestBySymbol[q.symbol] = q.price;
         }
@@ -79,7 +70,6 @@ export async function GET(req: NextRequest) {
         console.error("[/api/portfolio] provider.getQuote failed:", provErr);
       }
     }
-  }
   const enriched = positions.map((p) => {
     const price = latestBySymbol[p.symbol];
     const value = price != null ? p.qty * price : undefined;
@@ -90,28 +80,12 @@ export async function GET(req: NextRequest) {
   const totalCost = enriched.reduce((s, p) => s + p.cost, 0);
   const totalEquity = enriched.reduce((s, p) => s + (p.value ?? 0), 0) + cash;
 
-  // Build a simple equity curve over last 30 days using stored prices if present
-  const start = dayjs().subtract(30, "day").startOf("day").toDate();
-  const prices = await prisma.price.findMany({
-    where: { security: { symbol: { in: symbols } }, asOf: { gte: start } },
-    orderBy: { asOf: "asc" },
-    include: { security: true },
-  });
-  const byDate: Record<string, number> = {};
-  for (const p of prices) {
-    // naive: value = latest position qty * close; ignores position changes over time for now
-    const pos = positions.find((x) => x.symbol === p.security.symbol);
-    if (!pos) continue;
-    const key = dayjs(p.asOf).format("YYYY-MM-DD");
-    byDate[key] = (byDate[key] || 0) + pos.qty * Number(p.close);
-  }
-  // Coerce to array; fill gaps; add cash as flat
-  const curve: { t: string; v: number }[] = [];
-  for (let i = 29; i >= 0; i--) {
-    const d = dayjs().subtract(i, "day").format("YYYY-MM-DD");
-    const v = (byDate[d] ?? (curve.length ? curve[curve.length - 1].v - cash : 0)) + cash;
-    curve.push({ t: d, v });
-  }
+    // Simple equity curve (flat at current totalEquity for last 30 days)
+    const curve: { t: string; v: number }[] = [];
+    for (let i = 29; i >= 0; i--) {
+      const d = dayjs().subtract(i, "day").format("YYYY-MM-DD");
+      curve.push({ t: d, v: totalEquity });
+    }
 
   return NextResponse.json({ cash, totalCost, totalValue: totalEquity, positions: enriched, equityCurve: curve });
   } catch (e) {
