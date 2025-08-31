@@ -80,24 +80,37 @@ export default function ImportPortfolioPage() {
   const [equityCurve, setEquityCurve] = useState<{ t: string; v: number }[]>([]);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [accountsLoading, setAccountsLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/accounts").then((r) => r.json()).then((j) => {
-      const list: Account[] = j.data || [];
-      if (list.length === 0) {
-        fetch("/api/accounts", { method: "POST" }).then((r) => r.json()).then((k) => {
+    setAccountsLoading(true);
+    setError(null);
+    fetch("/api/accounts")
+      .then(async (r) => {
+        if (!r.ok) throw new Error(`Failed to load accounts (${r.status})`);
+        return r.json();
+      })
+      .then(async (j) => {
+        const list: Account[] = j.data || [];
+        if (list.length === 0) {
+          const res = await fetch("/api/accounts", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name: "My Portfolio" }),
+          });
+          if (!res.ok) throw new Error(`Failed to create account (${res.status})`);
+          const k = await res.json();
           setAccounts([k.data]);
           setAccountId(k.data.id);
-          // Populate any existing portfolio state
-          buildPositions();
-        });
-      } else {
-        setAccounts(list);
-        setAccountId(list[0].id);
-        // Populate portfolio for first account
-        buildPositions();
-      }
-    });
+          await buildPositions(k.data.id);
+        } else {
+          setAccounts(list);
+          setAccountId(list[0].id);
+          await buildPositions(list[0].id);
+        }
+      })
+      .catch((e) => setError(e instanceof Error ? e.message : "Failed to initialize accounts"))
+      .finally(() => setAccountsLoading(false));
   }, []);
 
   async function upload(e: React.FormEvent) {
@@ -182,13 +195,18 @@ export default function ImportPortfolioPage() {
               <div className="md:col-span-2 space-y-2">
                 <label className="text-sm font-medium text-neutral-300">Select Account</label>
                 <select 
-                  className="w-full px-4 py-3 bg-neutral-800 border border-neutral-700 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all duration-200 text-white" 
+                  className="w-full px-4 py-3 bg-neutral-800 border border-neutral-700 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all duration-200 text-white disabled:opacity-60" 
                   value={accountId} 
                   onChange={async (e) => { const id = e.target.value; setAccountId(id); await buildPositions(id); }}
+                  disabled={accountsLoading || accounts.length === 0}
                 >
-                  {accounts.map((a) => (
-                    <option key={a.id} value={a.id}>{a.name}</option>
-                  ))}
+                  {accounts.length === 0 ? (
+                    <option value="">{accountsLoading ? "Loading accounts…" : "No account"}</option>
+                  ) : (
+                    accounts.map((a) => (
+                      <option key={a.id} value={a.id}>{a.name}</option>
+                    ))
+                  )}
                 </select>
               </div>
               
@@ -208,12 +226,16 @@ export default function ImportPortfolioPage() {
                 <Button 
                   type="submit" 
                   className="w-full py-3 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white font-medium rounded-lg transition-all duration-200 shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
-                  disabled={!file || !accountId || uploading}
+                  disabled={!file || !accountId || uploading || accountsLoading}
                 >
                   {uploading ? "Importing…" : "Import"}
                 </Button>
               </div>
             </form>
+
+            {!accountId && !accountsLoading && (
+              <div className="mt-3 text-sm text-neutral-400">Create or select an account to enable importing.</div>
+            )}
             
             {error && (
               <div className="mt-6 p-4 bg-red-950/50 border border-red-700/50 rounded-lg flex items-center gap-3">
