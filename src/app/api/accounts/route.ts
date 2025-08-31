@@ -29,46 +29,71 @@ async function ensureSchema() {
   const url = process.env.DATABASE_URL || "";
   if (!url.startsWith("file:")) return; // bootstrap only for SQLite
   try {
-    console.log("[ensureSchema] Bootstrapping database schema...");
-    const migPath = path.resolve(process.cwd(), "prisma", "migrations", "20250829142012_init", "migration.sql");
+    console.log("[ensureSchema] Attempting to push schema to database...");
     
-    if (!fs.existsSync(migPath)) {
-      console.error("[ensureSchema] Migration file not found:", migPath);
-      return;
-    }
+    // Use Prisma's db push instead of raw SQL for more reliability
+    const { spawn } = await import("child_process");
+    const { promisify } = await import("util");
+    const execAsync = promisify(spawn);
     
-    const sql = fs.readFileSync(migPath, "utf8");
-    // Split on semicolon followed by newline, but preserve CREATE TABLE blocks
-    const statements = sql
-      .split(/;\s*(?=\n|$)/)
-      .map((s) => s.trim())
-      .filter((s) => s.length > 0 && !s.startsWith("--"));
+    // Run prisma db push programmatically
+    const pushProcess = spawn("npx", ["prisma", "db", "push", "--accept-data-loss"], {
+      stdio: ["ignore", "pipe", "pipe"],
+      env: { ...process.env, DATABASE_URL: url }
+    });
     
-    console.log(`[ensureSchema] Executing ${statements.length} statements...`);
+    let output = "";
+    let errorOutput = "";
     
-    for (let i = 0; i < statements.length; i++) {
-      const stmt = statements[i];
-      if (!stmt || stmt.length < 5) continue;
-      
-      try {
-        console.log(`[ensureSchema] Executing statement ${i + 1}: ${stmt.substring(0, 50)}...`);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await (prisma as any).$executeRawUnsafe(stmt);
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : String(e);
-        // Ignore "already exists" errors but log others
-        if (!/already exists|table .* already exists/i.test(msg)) {
-          console.error(`[ensureSchema] Statement ${i + 1} failed:`, msg);
-          console.error(`[ensureSchema] Failed statement: ${stmt}`);
-          // Don't throw - continue with other statements
+    pushProcess.stdout?.on("data", (data) => {
+      output += data.toString();
+    });
+    
+    pushProcess.stderr?.on("data", (data) => {
+      errorOutput += data.toString();
+    });
+    
+    await new Promise((resolve, reject) => {
+      pushProcess.on("close", (code) => {
+        if (code === 0) {
+          console.log("[ensureSchema] Schema push successful:", output);
+          resolve(void 0);
         } else {
-          console.log(`[ensureSchema] Statement ${i + 1} skipped (already exists)`);
+          console.error("[ensureSchema] Schema push failed:", errorOutput);
+          reject(new Error(`Prisma push failed with code ${code}`));
         }
-      }
-    }
-    console.log("[ensureSchema] Schema bootstrap completed");
+      });
+    });
+    
   } catch (e) {
     console.error("[ensureSchema] Schema bootstrap failed:", e);
+    // Fallback: try to create just the essential tables manually
+    try {
+      console.log("[ensureSchema] Attempting fallback table creation...");
+      await (prisma as any).$executeRawUnsafe(`
+        CREATE TABLE IF NOT EXISTS "User" (
+          "id" TEXT NOT NULL PRIMARY KEY,
+          "name" TEXT,
+          "email" TEXT,
+          "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      
+      await (prisma as any).$executeRawUnsafe(`
+        CREATE TABLE IF NOT EXISTS "PortfolioAccount" (
+          "id" TEXT NOT NULL PRIMARY KEY,
+          "userId" TEXT NOT NULL,
+          "name" TEXT NOT NULL,
+          "baseCcy" TEXT NOT NULL DEFAULT 'USD',
+          "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
+        )
+      `);
+      
+      console.log("[ensureSchema] Fallback table creation completed");
+    } catch (fallbackErr) {
+      console.error("[ensureSchema] Fallback failed too:", fallbackErr);
+    }
   }
 }
 

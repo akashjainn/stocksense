@@ -4,9 +4,11 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 1. Install: npm install
 2. Configure `.env`:
-	- DATABASE_URL=file:./dev.db (SQLite for dev)
-	- NEXTAUTH_SECRET, ALPHAVANTAGE_API_KEY, REDIS_URL, EDGAR_USER_AGENT
-3. DB: npm run prisma:migrate; npm run db:seed
+	- For local SQLite dev: `DATABASE_URL=file:./prisma/dev.db`
+	- For Turso (hosted): set `DATABASE_URL=libsql://<host>?authToken=...` or split `DATABASE_URL=libsql://<host>` and `TURSO_AUTH_TOKEN=...`
+	- Also set: `NEXTAUTH_SECRET`, `ALPHAVANTAGE_API_KEY`, `REDIS_URL`, `EDGAR_USER_AGENT`
+3. DB (SQLite): `npm run prisma:migrate`; `npm run db:seed`
+   DB (Turso): `npm run db:turso:apply`
 4. Run: npm run dev (http://localhost:3000)
 
 APIs available:
@@ -22,7 +24,11 @@ This project uses Alpaca for live market data streaming and Alpha Vantage for on
 - Quotes and historical candles for portfolio calculations use the `AlphaVantageProvider` by default (`src/lib/providers/prices.ts`).
 
 Environment setup (.env):
-- DATABASE_URL=file:./prisma/dev.db
+- For Turso:
+	- DATABASE_URL=libsql://<your-db>.turso.io
+	- TURSO_AUTH_TOKEN=<your-token>
+- For local dev:
+	- DATABASE_URL=file:./prisma/dev.db
 - MARKET_DATA_PROVIDER=alpaca
 - ALPACA_API_KEY_ID=your_key
 - ALPACA_API_SECRET_KEY=your_secret

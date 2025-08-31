@@ -3,7 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack",
+    "dev": "next dev",
+    "dev-turbo": "next dev --turbopack",
     "build": "prisma generate && next build --turbopack",
     "start": "next start",
     "lint": "eslint",
@@ -11,12 +12,15 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev --name init",
     "db:seed": "prisma db seed",
+  "db:turso:apply": "tsx scripts/turso-migrate.ts",
     "jobs:backfill": "tsx src/jobs/backfill.ts",
     "jobs:eod": "tsx src/jobs/refresh-eod.ts"
   },
   "dependencies": {
     "@alpacahq/alpaca-trade-api": "^3.1.3",
     "@auth/prisma-adapter": "^2.10.0",
+    "@libsql/client": "^0.8.1",
+    "@prisma/adapter-libsql": "^6.15.0",
     "@prisma/client": "^6.15.0",
     "@tanstack/react-query": "^5.85.5",
     "@tanstack/react-table": "^8.21.3",
