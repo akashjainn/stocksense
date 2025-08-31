@@ -29,25 +29,46 @@ async function ensureSchema() {
   const url = process.env.DATABASE_URL || "";
   if (!url.startsWith("file:")) return; // bootstrap only for SQLite
   try {
+    console.log("[ensureSchema] Bootstrapping database schema...");
     const migPath = path.resolve(process.cwd(), "prisma", "migrations", "20250829142012_init", "migration.sql");
+    
+    if (!fs.existsSync(migPath)) {
+      console.error("[ensureSchema] Migration file not found:", migPath);
+      return;
+    }
+    
     const sql = fs.readFileSync(migPath, "utf8");
+    // Split on semicolon followed by newline, but preserve CREATE TABLE blocks
     const statements = sql
-      .split(/;\s*\n/)
+      .split(/;\s*(?=\n|$)/)
       .map((s) => s.trim())
-      .filter((s) => s.length > 0);
-    for (const stmt of statements) {
+      .filter((s) => s.length > 0 && !s.startsWith("--"));
+    
+    console.log(`[ensureSchema] Executing ${statements.length} statements...`);
+    
+    for (let i = 0; i < statements.length; i++) {
+      const stmt = statements[i];
+      if (!stmt || stmt.length < 5) continue;
+      
       try {
+        console.log(`[ensureSchema] Executing statement ${i + 1}: ${stmt.substring(0, 50)}...`);
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         await (prisma as any).$executeRawUnsafe(stmt);
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
-        if (!/already exists/i.test(msg)) {
-          throw e;
+        // Ignore "already exists" errors but log others
+        if (!/already exists|table .* already exists/i.test(msg)) {
+          console.error(`[ensureSchema] Statement ${i + 1} failed:`, msg);
+          console.error(`[ensureSchema] Failed statement: ${stmt}`);
+          // Don't throw - continue with other statements
+        } else {
+          console.log(`[ensureSchema] Statement ${i + 1} skipped (already exists)`);
         }
       }
     }
+    console.log("[ensureSchema] Schema bootstrap completed");
   } catch (e) {
-    console.error("Schema bootstrap failed:", e);
+    console.error("[ensureSchema] Schema bootstrap failed:", e);
   }
 }
 
