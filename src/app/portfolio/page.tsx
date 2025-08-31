@@ -17,6 +17,7 @@ type Pt = { t: string; v: number };
 
 export default function PortfolioPage() {
   const [series, setSeries] = useState<Pt[]>([]);
+  const [range, setRange] = useState<"30D" | "3M" | "1Y" | "3Y">("30D");
   const [refreshing, setRefreshing] = useState(false);
   const [accountId, setAccountId] = useState<string | undefined>(undefined);
   const [loading, setLoading] = useState(true);
@@ -96,6 +97,27 @@ export default function PortfolioPage() {
   const dayChangePct = prev !== 0 ? (dayChange / prev) * 100 : 0;
   const totalPnl = useMemo(() => totalValue - totalCost, [totalValue, totalCost]);
   const totalPnlPct = useMemo(() => (totalCost > 0 ? (totalPnl / totalCost) * 100 : 0), [totalPnl, totalCost]);
+
+  // Filter series by selected range for the chart only (KPIs remain lifetime-based)
+  const filteredSeries = useMemo(() => {
+    if (!series.length) return series;
+    const now = new Date();
+    const start = new Date(now);
+    if (range === "30D") {
+      start.setDate(start.getDate() - 30);
+    } else if (range === "3M") {
+      start.setMonth(start.getMonth() - 3);
+    } else if (range === "1Y") {
+      start.setFullYear(start.getFullYear() - 1);
+    } else if (range === "3Y") {
+      start.setFullYear(start.getFullYear() - 3);
+    }
+    // If a point lacks a valid date, keep it (defensive), otherwise filter by date
+    return series.filter((p) => {
+      const dt = new Date(p.t);
+      return isNaN(dt.getTime()) ? true : dt >= start;
+    });
+  }, [series, range]);
 
   const StatCard = ({ 
     title, 
@@ -238,19 +260,24 @@ export default function PortfolioPage() {
                 </p>
               </div>
               <div className="flex items-center space-x-2">
-                <button className="px-3 py-1.5 text-xs font-medium rounded-lg bg-emerald-600 text-white">
-                  30D
-                </button>
-                <button className="px-3 py-1.5 text-xs font-medium rounded-lg text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors">
-                  3M
-                </button>
-                <button className="px-3 py-1.5 text-xs font-medium rounded-lg text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors">
-                  1Y
-                </button>
+                {(["30D","3M","1Y","3Y"] as const).map((opt) => (
+                  <button
+                    key={opt}
+                    onClick={() => setRange(opt)}
+                    className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                      range === opt
+                        ? "bg-emerald-600 text-white"
+                        : "text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                    }`}
+                    aria-pressed={range === opt}
+                  >
+                    {opt}
+                  </button>
+                ))}
               </div>
             </div>
             <div className="opacity-100 transition-opacity" aria-busy={loading}>
-              <PortfolioChart data={series} />
+              <PortfolioChart data={filteredSeries} />
             </div>
           </div>
         </div>
