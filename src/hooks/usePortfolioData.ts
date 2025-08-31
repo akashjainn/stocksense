@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 export interface PortfolioData {
   totalValue: number;
@@ -44,7 +44,7 @@ export function usePortfolioData(accountId?: string) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       setLoading(true);
       const url = accountId 
@@ -85,11 +85,11 @@ export function usePortfolioData(accountId?: string) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [accountId]);
 
   useEffect(() => {
     fetchData();
-  }, [accountId]);
+  }, [accountId, fetchData]);
 
   return { data, loading, error, refetch: fetchData };
 }
@@ -99,7 +99,7 @@ export function useHistoricalData(accountId?: string, period: string = '6M') {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       setLoading(true);
       const params = new URLSearchParams({ period });
@@ -120,11 +120,11 @@ export function useHistoricalData(accountId?: string, period: string = '6M') {
     } finally {
       setLoading(false);
     }
-  };
+  }, [accountId, period]);
 
   useEffect(() => {
     fetchData();
-  }, [accountId, period]);
+  }, [fetchData]);
 
   return { data, loading, error, refetch: fetchData };
 }
@@ -134,7 +134,7 @@ export function useMarketData(symbols: string[]) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     if (symbols.length === 0) {
       setData([]);
       setLoading(false);
@@ -152,6 +152,7 @@ export function useMarketData(symbols: string[]) {
       const marketData: MarketData[] = [];
       
       for (const [symbol, quote] of Object.entries(result.data || {})) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const q = quote as any;
         marketData.push({
           symbol,
@@ -170,7 +171,7 @@ export function useMarketData(symbols: string[]) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [symbols]);
 
   useEffect(() => {
     fetchData();
@@ -179,7 +180,7 @@ export function useMarketData(symbols: string[]) {
     const interval = setInterval(fetchData, 30000); // Update every 30 seconds
     
     return () => clearInterval(interval);
-  }, [symbols.join(',')]);
+  }, [fetchData]);
 
   return { data, loading, error, refetch: fetchData };
 }

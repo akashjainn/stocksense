@@ -8,7 +8,6 @@ import {
   Activity,
   Calendar,
   Building2,
-  RefreshCw,
   Filter,
   Download,
   ArrowUpRight,

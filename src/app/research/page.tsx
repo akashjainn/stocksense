@@ -7,7 +7,6 @@ import {
   Globe, 
   Activity,
   ArrowRight,
-  Zap,
   Eye
 } from "lucide-react";
 

@@ -3,8 +3,6 @@ import { useEffect, useState } from "react";
 import { connectSSE } from "@/lib/market/live";
 import { 
   Activity, 
-  TrendingUp, 
-  TrendingDown, 
   RefreshCw,
   ArrowUpRight,
   ArrowDownRight

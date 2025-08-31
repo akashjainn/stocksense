@@ -8,9 +8,7 @@ import {
   Database,
   Palette,
   Globe,
-  Key,
   Download,
-  Upload,
   RefreshCw,
   Check,
   ChevronRight

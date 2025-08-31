@@ -5,7 +5,6 @@ import {
   Eye, 
   Plus, 
   TrendingUp, 
-  TrendingDown, 
   Activity,
   BarChart3,
   RefreshCw,

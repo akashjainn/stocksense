@@ -9,8 +9,7 @@ import {
   AlertTriangle,
   CheckCircle,
   Settings,
-  Filter,
-  Download
+  Filter
 } from "lucide-react";
 
 type Alert = {

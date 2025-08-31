@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
     });
 
     // Calculate portfolio composition over time
-    const portfolioHistory = calculatePortfolioHistory(txns, period);
+    const portfolioHistory = calculatePortfolioHistory(txns);
     
     // Get historical prices for current holdings
     const currentHoldings = getCurrentHoldings(txns);
@@ -94,6 +94,7 @@ function getPeriodDates(period: string) {
   };
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function getCurrentHoldings(txns: any[]) {
   const holdings = new Map<string, { symbol: string; qty: number; cost: number; avgPrice: number }>();
   
@@ -128,7 +129,8 @@ function getCurrentHoldings(txns: any[]) {
   return holdings;
 }
 
-function calculatePortfolioHistory(txns: any[], period: string) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function calculatePortfolioHistory(txns: any[]) {
   // Build a timeline of portfolio composition changes
   const timeline: Array<{
     date: string;
@@ -217,6 +219,7 @@ async function getHistoricalData(symbols: string[], fromDate: string, toDate: st
   }
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function calculatePortfolioValues(portfolioHistory: any[], historicalData: Map<string, Map<string, number>>) {
   const values: Array<{ date: string; value: number }> = [];
   
