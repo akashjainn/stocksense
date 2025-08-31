@@ -15,6 +15,8 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 MongoDB quick check:
 - GET /api/mongo-test — verifies connection (requires MONGODB_URI)
 
+Note: All API routes now use MongoDB instead of Turso/SQL.
+
 APIs available:
 - GET /api/health
 - GET /api/quotes?symbols=AAPL,MSFT
