@@ -276,9 +276,9 @@ const StockSenseDashboard = () => {
   );
 
   const PositionRow = ({ position }: { position: Position }) => {
-    const avgCost = position.cost / position.qty;
-    const totalGainLoss = position.pnl;
-    const gainLossPercent = position.pnlPct;
+  const avgCost = position.qty ? position.cost / position.qty : 0;
+  const totalGainLoss = typeof position.pnl === 'number' ? position.pnl : 0;
+  const gainLossPercent = typeof position.pnlPct === 'number' ? position.pnlPct : 0;
     const isPositive = totalGainLoss >= 0;
     const companyName = getCompanyName(position.symbol);
     
@@ -303,23 +303,23 @@ const StockSenseDashboard = () => {
             </div>
             <p className="text-sm text-neutral-600 dark:text-neutral-400 truncate">{companyName}</p>
             <p className="text-xs text-neutral-500 mt-1">
-              {position.qty} shares @ ${position.price.toFixed(2)}
+              {position.qty} shares @ {position.price != null ? `$${position.price.toFixed(2)}` : 'N/A'}
             </p>
           </div>
         </div>
 
         <div className="text-right mr-6">
           <p className="font-bold text-lg text-neutral-900 dark:text-neutral-50 mb-1">
-            ${position.value.toLocaleString()}
+            {position.value != null ? `$${position.value.toLocaleString()}` : '—'}
           </p>
           <div className={`text-sm font-medium flex items-center justify-end space-x-1 mb-1 ${
             isPositive ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'
           }`}>
             {isPositive ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
-            <span>{isPositive ? '+' : ''}${totalGainLoss.toFixed(2)}</span>
-            <span className="text-xs">({gainLossPercent.toFixed(1)}%)</span>
+            <span>{isPositive ? '+' : ''}${Number(totalGainLoss).toFixed(2)}</span>
+            <span className="text-xs">({Number(gainLossPercent).toFixed(1)}%)</span>
           </div>
-          <p className="text-xs text-neutral-500">Avg: ${avgCost.toFixed(2)}</p>
+          <p className="text-xs text-neutral-500">Avg: ${Number(avgCost).toFixed(2)}</p>
         </div>
 
         <div className="text-right min-w-[80px]">
@@ -327,7 +327,7 @@ const StockSenseDashboard = () => {
             dayChange > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'
           }`}>
             {dayChange > 0 ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
-            <span>{dayChange > 0 ? '+' : ''}{dayChange.toFixed(2)}%</span>
+            <span>{dayChange > 0 ? '+' : ''}{Number(dayChange).toFixed(2)}%</span>
           </div>
           <p className="text-xs text-neutral-500 mt-1">Today</p>
         </div>
