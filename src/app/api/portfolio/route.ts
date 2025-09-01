@@ -1,7 +1,7 @@
 import { getMongoDb } from "@/lib/mongodb";
 import type { ObjectId } from "mongodb";
 import { buildProvider } from "@/lib/providers/prices";
-import { getCandlesMapCached, getQuotesCached, getLatestClose } from "@/lib/pricingCache";
+import { getQuotesCached, getLatestClose } from "@/lib/pricingCache";
 import dayjs from "dayjs";
 import { NextRequest, NextResponse } from "next/server";
 

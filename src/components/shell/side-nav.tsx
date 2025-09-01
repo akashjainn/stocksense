@@ -4,7 +4,6 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/ui/cn";
 import { 
   LayoutDashboard, 
-  Briefcase, 
   Upload, 
   TrendingUp, 
   Eye, 

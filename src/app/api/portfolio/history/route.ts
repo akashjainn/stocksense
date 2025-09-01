@@ -1,5 +1,5 @@
 import { getMongoDb } from "@/lib/mongodb";
-import { PriceProvider, buildProvider } from "@/lib/providers/prices";
+import { buildProvider } from "@/lib/providers/prices";
 import {
   getCandlesMapCached,
   getQuotesCached,
@@ -123,7 +123,7 @@ function getPeriodDates(period: string) {
   };
 }
 
-async function getCurrentPrices(symbols: string[], cacheKey: string) {
+async function getCurrentPrices(symbols: string[], _cacheKey: string) {
   const provider = buildProvider();
   // The cacheKey is not used here, but we keep the signature for consistency.
   // The ttl is managed within getQuotesCached.
@@ -196,7 +196,7 @@ function calculatePortfolioHistory(
   const history: { date: string; holdings: Map<string, number> }[] = [];
   if (txns.length === 0) return history;
 
-  let currentHoldings = new Map<string, number>();
+  const currentHoldings = new Map<string, number>();
   let currentDate = dayjs(txns[0].tradeDate).format("YYYY-MM-DD");
 
   for (const t of txns) {

@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ensureAccount, getPortfolio, type PositionDTO, type EquityPoint } from "@/lib/client/portfolio";
 import { clearPortfolioCache } from "@/hooks/usePortfolioData";
 import { Card, CardContent } from "@/components/ui/card";
@@ -88,6 +88,41 @@ export default function ImportPortfolioPage() {
   const [error, setError] = useState<string | null>(null);
   const [accountsLoading, setAccountsLoading] = useState(true);
 
+  const buildPositions = useCallback(async (id?: string) => {
+    try {
+      const acct = id ?? accountId;
+      if (!acct) return;
+      const data = await getPortfolio(acct);
+      const pos: Position[] = (data.positions || []).map((p: PositionDTO) => ({
+        symbol: p.symbol,
+        qty: p.qty,
+        cost: p.cost,
+        avg: p.qty > 0 ? p.cost / p.qty : 0,
+        price: p.price,
+        value: p.value,
+        pnl: p.pnl,
+        pnlPct: p.pnlPct,
+      }));
+      setPositions(pos);
+      setEquityCurve((data.equityCurve || []) as EquityPoint[]);
+      // Prefer server-computed totals to keep consistency with Dashboard
+      const tv = Number(data.totalValue || 0);
+      const tc = Number(data.totalCost || 0);
+      setTotalValue(tv);
+      setTotalCost(tc);
+      const pnl = tv - tc;
+      setTotalPnl(pnl);
+      setTotalPnlPct(tc > 0 ? (pnl / tc) * 100 : 0);
+    } catch (err) {
+      setPositions([]);
+      setEquityCurve([]);
+      setTotalValue(0);
+      setTotalCost(0);
+      setTotalPnl(0);
+      setTotalPnlPct(0);
+    }
+  }, [accountId]);
+
   useEffect(() => {
     (async () => {
       setAccountsLoading(true);
@@ -97,13 +132,13 @@ export default function ImportPortfolioPage() {
         setAccounts([acct]);
         setAccountId(acct.id);
         await buildPositions(acct.id);
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Failed to initialize accounts");
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to initialize accounts");
       } finally {
         setAccountsLoading(false);
       }
     })();
-  }, []);
+  }, [buildPositions]);
 
   async function upload(e: React.FormEvent) {
     e.preventDefault();
@@ -133,40 +168,7 @@ export default function ImportPortfolioPage() {
     }
   }
 
-  async function buildPositions(id?: string) {
-    try {
-      const acct = id ?? accountId;
-      if (!acct) return;
-      const data = await getPortfolio(acct);
-      const pos: Position[] = (data.positions || []).map((p: PositionDTO) => ({
-        symbol: p.symbol,
-        qty: p.qty,
-        cost: p.cost,
-        avg: p.qty > 0 ? p.cost / p.qty : 0,
-        price: p.price,
-        value: p.value,
-        pnl: p.pnl,
-        pnlPct: p.pnlPct,
-      }));
-      setPositions(pos);
-      setEquityCurve((data.equityCurve || []) as EquityPoint[]);
-  // Prefer server-computed totals to keep consistency with Dashboard
-  const tv = Number(data.totalValue || 0);
-  const tc = Number(data.totalCost || 0);
-  setTotalValue(tv);
-  setTotalCost(tc);
-  const pnl = tv - tc;
-  setTotalPnl(pnl);
-  setTotalPnlPct(tc > 0 ? (pnl / tc) * 100 : 0);
-    } catch (e) {
-      setPositions([]);
-      setEquityCurve([]);
-  setTotalValue(0);
-  setTotalCost(0);
-  setTotalPnl(0);
-  setTotalPnlPct(0);
-    }
-  }
+  // buildPositions moved above and memoized with useCallback
 
 
   return (
