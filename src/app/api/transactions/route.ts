@@ -90,3 +90,31 @@ export async function GET() {
   }));
   return Response.json({ data });
 }
+
+// Delete all transactions for an account (clear portfolio)
+export async function DELETE(req: NextRequest) {
+  try {
+    const url = new URL(req.url);
+    const qpAccountId = url.searchParams.get("accountId") || undefined;
+    let bodyAccountId: string | undefined;
+    try {
+      const body = (await req.json().catch(() => ({}))) as { accountId?: string };
+      bodyAccountId = body.accountId;
+    } catch {
+      // ignore
+    }
+    const accountId = qpAccountId || bodyAccountId;
+    if (!accountId) {
+      return Response.json(
+        { error: "Missing accountId" },
+        { status: 400 }
+      );
+    }
+    const db = await getMongoDb();
+    const res = await db.collection("transactions").deleteMany({ accountId });
+    return Response.json({ ok: true, deletedCount: res.deletedCount ?? 0 });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Unknown error";
+    return Response.json({ error: "Failed to clear portfolio", detail: msg }, { status: 500 });
+  }
+}

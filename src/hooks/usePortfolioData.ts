@@ -178,8 +178,11 @@ export function useHistoricalData(accountId?: string, period: string = '6M') {
       if (accountId) {
         params.append('accountId', accountId);
       }
-      
-      const response = await fetch(`/api/portfolio/history?${params}`);
+      // Add a timeout so the UI doesn't get stuck waiting for a slow API
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 5000);
+      const response = await fetch(`/api/portfolio/history?${params}` , { signal: controller.signal });
+      clearTimeout(timeout);
       if (!response.ok) {
         throw new Error('Failed to fetch historical data');
       }
@@ -188,7 +191,18 @@ export function useHistoricalData(accountId?: string, period: string = '6M') {
       setData(result);
       setError(null);
     } catch (err) {
+      console.error('[History] Fetch error or timeout:', err);
       setError(err instanceof Error ? err.message : 'Unknown error');
+      // Provide a minimal fallback so the dashboard can render
+      setData({
+        portfolioHistory: [],
+        benchmark: [],
+        totalValue: 0,
+        totalCost: 0,
+        totalPnl: 0,
+        totalPnlPct: 0,
+        period,
+      });
     } finally {
       setLoading(false);
     }

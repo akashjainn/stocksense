@@ -85,6 +85,7 @@ export default function ImportPortfolioPage() {
   const [totalPnl, setTotalPnl] = useState(0);
   const [totalPnlPct, setTotalPnlPct] = useState(0);
   const [uploading, setUploading] = useState(false);
+  const [clearing, setClearing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [accountsLoading, setAccountsLoading] = useState(true);
 
@@ -168,6 +169,25 @@ export default function ImportPortfolioPage() {
     }
   }
 
+  async function clearPortfolio() {
+    if (!accountId) return;
+    setError(null);
+    setClearing(true);
+    try {
+      const res = await fetch(`/api/transactions?accountId=${encodeURIComponent(accountId)}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const txt = await res.text();
+        throw new Error(txt || `Clear portfolio failed (${res.status})`);
+      }
+      clearPortfolioCache(accountId);
+      await buildPositions(accountId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to clear portfolio');
+    } finally {
+      setClearing(false);
+    }
+  }
+
   // buildPositions moved above and memoized with useCallback
 
 
@@ -248,13 +268,21 @@ export default function ImportPortfolioPage() {
                 </div>
               </div>
               
-              <div className="md:col-span-1">
+              <div className="md:col-span-1 flex gap-2">
                 <Button 
                   type="submit" 
                   className="w-full py-3 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white font-medium rounded-lg transition-all duration-200 shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
                   disabled={!file || !accountId || uploading || accountsLoading}
                 >
                   {uploading ? "Importing…" : "Import"}
+                </Button>
+                <Button
+                  type="button"
+                  className="py-3 w-full bg-neutral-700 hover:bg-neutral-600 text-white rounded-lg disabled:opacity-60 disabled:cursor-not-allowed"
+                  onClick={clearPortfolio}
+                  disabled={!accountId || clearing || accountsLoading}
+                >
+                  {clearing ? 'Clearing…' : 'Clear Portfolio'}
                 </Button>
               </div>
             </form>
