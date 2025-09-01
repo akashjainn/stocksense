@@ -60,7 +60,14 @@ export async function POST(req: NextRequest) {
   if (!file || typeof file === "string") return new Response("file required", { status: 400 });
   if (!accountId) return new Response("accountId required", { status: 400 });
   const text = await (file as Blob).text();
-  
+
+  const db = await getMongoDb();
+  const txCol = db.collection("transactions");
+  const secCol = db.collection("securities"); // Ensure secCol is defined
+
+  // Clear existing transactions for the account
+  await txCol.deleteMany({ accountId });
+
   const parsed = Papa.parse<Row>(text, { 
     header: true, 
     // Greedy skips lines that appear empty but may contain stray delimiters/whitespace
@@ -78,7 +85,7 @@ export async function POST(req: NextRequest) {
   if (nonTrivialErrors.length) {
     return new Response(`Parse error: ${nonTrivialErrors[0].message}`, { status: 400 });
   }
-  
+
   const allRows = (parsed.data || []).filter(Boolean) as Row[];
   const first = allRows[0] || {};
   const hasTransType = !!(first.type || first.transactiontype || first.transcode);
@@ -88,9 +95,6 @@ export async function POST(req: NextRequest) {
     ? allRows.filter(r => r && (r.symbol || r.ticker || r.instrument) && (r.quantity || r.shares))
     : allRows.filter(r => r && (r["activity date"] || r.activitydate || r.date || r.tradedate) && (r.description || r.instrument || r.transcode || r.type));
   let created = 0;
-  const db = await getMongoDb();
-  const txCol = db.collection("transactions");
-  const secCol = db.collection("securities");
 
   for (const r of rows) {
     // Header aliases
