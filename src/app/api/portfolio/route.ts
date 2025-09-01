@@ -79,43 +79,63 @@ export async function GET(req: NextRequest) {
   // Try to use provider quotes first (ignore zero/invalid), then fallback to latest daily close
   const latestBySymbol: Record<string, number> = {};
   if (symbols.length) {
+    // First try: get quotes from provider
     try {
+      console.log('[Portfolio] Fetching quotes for symbols:', symbols);
       const list = await buildProvider().getQuote(symbols as string[]);
+      console.log('[Portfolio] Quote response:', list);
+      
       for (const q of list) {
         if (q.price != null && isFinite(q.price) && q.price > 0) {
           latestBySymbol[q.symbol] = q.price;
+          console.log(`[Portfolio] Valid quote for ${q.symbol}: $${q.price}`);
+        } else {
+          console.warn(`[Portfolio] Invalid quote for ${q.symbol}:`, q.price);
         }
       }
     } catch (provErr) {
       console.error("[/api/portfolio] provider.getQuote failed:", provErr);
     }
+    
     // Fallback: fetch recent daily bars and use the most recent close if quote missing
     const needFallback = symbols.filter((s) => latestBySymbol[s] == null);
+    console.log('[Portfolio] Symbols needing fallback:', needFallback);
+    
     if (needFallback.length) {
       const toDate = dayjs().format("YYYY-MM-DD");
       const fromDate = dayjs().subtract(21, "day").format("YYYY-MM-DD");
+      
       for (const s of needFallback) {
         try {
+          console.log(`[Portfolio] Trying fallback for ${s}...`);
           // Try symbol as-is
           let bars = await getDailyBars([s], fromDate, toDate);
+          
           // If no bars, try common variant transforms
           if (!bars || bars.length === 0) {
             if (s.includes(".")) {
+              console.log(`[Portfolio] Trying ${s} -> ${s.replace(".", "/")}`);
               bars = await getDailyBars([s.replace(".", "/")], fromDate, toDate);
             } else if (s.includes("-")) {
               // Try dot variant for AV-style symbols
+              console.log(`[Portfolio] Trying ${s} -> ${s.replace("-", ".")}`);
               bars = await getDailyBars([s.replace("-", ".")], fromDate, toDate);
               if (!bars || bars.length === 0) {
+                console.log(`[Portfolio] Trying ${s} -> ${s.replace("-", "/")}`);
                 bars = await getDailyBars([s.replace("-", "/")], fromDate, toDate);
               }
             }
           }
+          
           if (bars && bars.length) {
             // Take the latest close
             const latest = bars.reduce((a, b) => (a.t > b.t ? a : b));
             if (latest.c && isFinite(latest.c) && latest.c > 0) {
               latestBySymbol[s] = latest.c;
+              console.log(`[Portfolio] Fallback price for ${s}: $${latest.c} from ${latest.t}`);
             }
+          } else {
+            console.warn(`[Portfolio] No fallback price found for ${s}`);
           }
         } catch (e) {
           console.warn(`[portfolio] fallback daily close failed for ${s}:`, e);

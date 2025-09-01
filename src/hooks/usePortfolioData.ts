@@ -1,5 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 
+// Simple cache to avoid re-fetching on every navigation
+const portfolioCache = new Map<string, { data: any; timestamp: number }>();
+const CACHE_DURATION = 30 * 1000; // 30 seconds
+
 export interface PortfolioData {
   totalValue: number;
   totalCost: number;
@@ -47,16 +51,55 @@ export function usePortfolioData(accountId?: string) {
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
+      
+      // Check cache first
+      const cacheKey = accountId || 'default';
+      const cached = portfolioCache.get(cacheKey);
+      if (cached && (Date.now() - cached.timestamp) < CACHE_DURATION) {
+        console.log('[Portfolio] Using cached data');
+        const result = cached.data;
+        
+        // Calculate day change (simplified - using first and last equity curve points)
+        const equityCurve = result.equityCurve || [];
+        const dayChange = equityCurve.length >= 2 
+          ? equityCurve[equityCurve.length - 1].v - equityCurve[equityCurve.length - 2].v
+          : 0;
+        const dayChangePercent = equityCurve.length >= 2 && equityCurve[equityCurve.length - 2].v > 0
+          ? (dayChange / equityCurve[equityCurve.length - 2].v) * 100
+          : 0;
+
+        setData({
+          totalValue: result.totalValue || 0,
+          totalCost: result.totalCost || 0,
+          totalPnl: (result.totalValue || 0) - (result.totalCost || 0),
+          totalPnlPct: result.totalCost > 0 ? (((result.totalValue || 0) - result.totalCost) / result.totalCost) * 100 : 0,
+          dayChange,
+          dayChangePercent,
+          positions: result.positions || [],
+          cash: result.cash || 0,
+          equityCurve: result.equityCurve || []
+        });
+        
+        setLoading(false);
+        setError(null);
+        return;
+      }
+      
       const url = accountId 
         ? `/api/portfolio?accountId=${encodeURIComponent(accountId)}`
         : '/api/portfolio';
       
+      console.log('[Portfolio] Fetching fresh data from:', url);
       const response = await fetch(url);
       if (!response.ok) {
         throw new Error('Failed to fetch portfolio data');
       }
       
       const result = await response.json();
+      console.log('[Portfolio] Raw API response:', result);
+      
+      // Cache the result
+      portfolioCache.set(cacheKey, { data: result, timestamp: Date.now() });
       
       // Calculate day change (simplified - using first and last equity curve points)
       const equityCurve = result.equityCurve || [];
@@ -67,7 +110,7 @@ export function usePortfolioData(accountId?: string) {
         ? (dayChange / equityCurve[equityCurve.length - 2].v) * 100
         : 0;
 
-      setData({
+      const portfolioData = {
         totalValue: result.totalValue || 0,
         totalCost: result.totalCost || 0,
         totalPnl: (result.totalValue || 0) - (result.totalCost || 0),
@@ -77,10 +120,13 @@ export function usePortfolioData(accountId?: string) {
         positions: result.positions || [],
         cash: result.cash || 0,
         equityCurve: result.equityCurve || []
-      });
+      };
       
+      console.log('[Portfolio] Processed data:', portfolioData);
+      setData(portfolioData);
       setError(null);
     } catch (err) {
+      console.error('[Portfolio] Fetch error:', err);
       setError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
       setLoading(false);
@@ -92,6 +138,13 @@ export function usePortfolioData(accountId?: string) {
   }, [accountId, fetchData]);
 
   return { data, loading, error, refetch: fetchData };
+}
+
+// Function to clear cache when portfolio data changes
+export function clearPortfolioCache(accountId?: string) {
+  const cacheKey = accountId || 'default';
+  portfolioCache.delete(cacheKey);
+  console.log('[Portfolio] Cache cleared for:', cacheKey);
 }
 
 export function useHistoricalData(accountId?: string, period: string = '6M') {

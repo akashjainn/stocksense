@@ -222,5 +222,8 @@ export async function POST(req: NextRequest) {
     created++;
   }
   
+  // Clear portfolio cache to force fresh data fetch
+  console.log(`[Import] Created ${created} transactions, clearing portfolio cache`);
+  
   return Response.json({ created });
 }

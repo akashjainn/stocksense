@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import { ensureAccount, getPortfolio, type PositionDTO, type EquityPoint } from "@/lib/client/portfolio";
+import { clearPortfolioCache } from "@/hooks/usePortfolioData";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
@@ -116,6 +117,10 @@ export default function ImportPortfolioPage() {
       }
       const j = await res.json();
       setCreated(j.created ?? 0);
+      
+      // Clear portfolio cache to force fresh data
+      clearPortfolioCache(accountId);
+      
       await buildPositions();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
