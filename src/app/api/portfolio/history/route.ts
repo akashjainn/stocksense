@@ -19,6 +19,8 @@ export async function GET(req: NextRequest) {
   const period = req.nextUrl.searchParams.get("period") || "6M"; // 1M, 3M, 6M, 1Y, ALL
 
   try {
+    console.log(`[Portfolio History] Starting request for accountId: ${accountId}, period: ${period}`);
+    
     // Get all transactions for the account
     const db = await getMongoDb();
     const txns = await db
@@ -28,18 +30,29 @@ export async function GET(req: NextRequest) {
 
     console.log("[Portfolio History] Found transactions:", txns.length);
 
+    if (txns.length === 0) {
+      console.log("[Portfolio History] No transactions found, returning empty data");
+      return NextResponse.json({
+        portfolioHistory: [],
+        benchmark: [],
+        totalValue: 0,
+        totalCost: 0,
+        totalPnl: 0,
+        totalPnlPct: 0,
+      });
+    }
+
     // Calculate portfolio composition over time
     const portfolioHistory = calculatePortfolioHistory(txns);
-
     console.log("[Portfolio History] Timeline entries:", portfolioHistory.length);
 
-    // Get historical prices for current holdings
+    // Get current holdings to determine which symbols we need price data for
     const currentHoldings = getCurrentHoldings(txns);
     const symbols = Array.from(currentHoldings.keys());
-
     console.log("[Portfolio History] Current symbols:", symbols);
 
     if (symbols.length === 0) {
+      console.log("[Portfolio History] No current holdings, returning empty data");
       return NextResponse.json({
         portfolioHistory: [],
         benchmark: [],
@@ -52,6 +65,8 @@ export async function GET(req: NextRequest) {
 
     // Fetch historical data
     const { fromDate, toDate } = getPeriodDates(period);
+    console.log(`[Portfolio History] Date range: ${fromDate} to ${toDate}`);
+    
     const historicalData = await getHistoricalData(symbols, fromDate, toDate);
 
     // Calculate portfolio value over time
@@ -60,20 +75,23 @@ export async function GET(req: NextRequest) {
       historicalData,
     );
 
+    console.log(`[Portfolio History] Calculated ${portfolioValues.length} portfolio value points`);
+
     // Get benchmark data (S&P 500 equivalent)
     const benchmarkData = await getBenchmarkData(fromDate, toDate);
+    console.log(`[Portfolio History] Benchmark data points: ${benchmarkData.length}`);
 
     // Calculate current totals
     const currentPrices = await getCurrentPrices(
       symbols,
       `portfolio-history-current-prices-${accountId}`,
     );
-    console.log(`[History] Current prices fetched:`, currentPrices);
+    console.log(`[History] Current prices fetched:`, Object.fromEntries(currentPrices));
 
     const { totalValue, totalCost, totalPnl, totalPnlPct } =
       calculateCurrentTotals(currentHoldings, currentPrices);
 
-    return NextResponse.json({
+    const result = {
       portfolioHistory: portfolioValues,
       benchmark: benchmarkData,
       totalValue,
@@ -81,7 +99,10 @@ export async function GET(req: NextRequest) {
       totalPnl,
       totalPnlPct,
       period,
-    });
+    };
+
+    console.log(`[Portfolio History] Returning result with ${portfolioValues.length} history points and current total: $${totalValue}`);
+    return NextResponse.json(result);
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
     console.error("Error fetching portfolio history:", msg);
@@ -230,23 +251,41 @@ async function getHistoricalData(
   fromDate: string,
   toDate: string,
 ) {
+  console.log(`[getHistoricalData] Fetching data for ${symbols.length} symbols from ${fromDate} to ${toDate}`);
   const provider = buildProvider();
   const data = new Map<string, { date: string; close: number }[]>();
 
   for (const symbol of symbols) {
     try {
+      console.log(`[getHistoricalData] Fetching candles for ${symbol}...`);
       const candles = await getCandlesMapCached(provider, symbol);
-      if (candles) {
+      
+      if (candles && candles.size > 0) {
         const candleData = Array.from(candles.entries())
           .filter(([date]) => date >= fromDate && date <= toDate)
-          .map(([date, close]) => ({ date, close }));
+          .map(([date, close]) => ({ date, close }))
+          .sort((a, b) => a.date.localeCompare(b.date)); // Ensure chronological order
 
+        console.log(`[getHistoricalData] Found ${candleData.length} price points for ${symbol} in date range`);
         data.set(symbol, candleData);
+        
+        // Log a few sample prices for debugging
+        if (candleData.length > 0) {
+          console.log(`[getHistoricalData] ${symbol} sample prices: ${candleData.slice(0, 3).map(c => `${c.date}:$${c.close}`).join(', ')}`);
+        }
+      } else {
+        console.warn(`[getHistoricalData] No historical data found for ${symbol}`);
+        data.set(symbol, []); // Set empty array to prevent undefined issues
       }
     } catch (error) {
-      console.error(`Failed to get historical data for ${symbol}:`, error);
+      console.error(`[getHistoricalData] Failed to get historical data for ${symbol}:`, error);
+      data.set(symbol, []); // Set empty array for failed symbols
     }
   }
+
+  const totalDataPoints = Array.from(data.values()).reduce((sum, arr) => sum + arr.length, 0);
+  console.log(`[getHistoricalData] Total data points collected: ${totalDataPoints}`);
+  
   return data;
 }
 
@@ -254,8 +293,15 @@ function calculatePortfolioValues(
   portfolioHistory: { date: string; holdings: Map<string, number> }[],
   historicalData: Map<string, { date: string; close: number }[]>,
 ) {
-  if (portfolioHistory.length === 0) return [];
+  console.log("[calculatePortfolioValues] Input - Portfolio history entries:", portfolioHistory.length);
+  console.log("[calculatePortfolioValues] Input - Historical data symbols:", Array.from(historicalData.keys()));
+  
+  if (portfolioHistory.length === 0) {
+    console.log("[calculatePortfolioValues] No portfolio history, returning empty array");
+    return [];
+  }
 
+  // Build price lookup maps
   const priceMap = new Map<string, Map<string, number>>();
   for (const [symbol, prices] of historicalData.entries()) {
     const symbolPriceMap = new Map<string, number>();
@@ -263,15 +309,23 @@ function calculatePortfolioValues(
       symbolPriceMap.set(price.date, price.close);
     }
     priceMap.set(symbol, symbolPriceMap);
+    console.log(`[calculatePortfolioValues] Loaded ${prices.length} price points for ${symbol}`);
   }
 
   const portfolioValues: { date: string; value: number }[] = [];
+  
+  // Use the transaction date range instead of going all the way to today
   const firstDate = dayjs(portfolioHistory[0].date);
-  const lastDate = dayjs();
+  const lastDate = portfolioHistory.length > 1 
+    ? dayjs(portfolioHistory[portfolioHistory.length - 1].date)
+    : dayjs(); // If only one day, use today
+  
+  console.log(`[calculatePortfolioValues] Date range: ${firstDate.format("YYYY-MM-DD")} to ${lastDate.format("YYYY-MM-DD")}`);
 
   let currentHoldings = new Map<string, number>();
   let historyIndex = 0;
 
+  // Generate portfolio values for each day in the range
   for (
     let d = firstDate;
     d.isSameOrBefore(lastDate, "day");
@@ -279,31 +333,50 @@ function calculatePortfolioValues(
   ) {
     const dateStr = d.format("YYYY-MM-DD");
 
+    // Update holdings if we have a transaction on this day
     while (
       historyIndex < portfolioHistory.length &&
       dayjs(portfolioHistory[historyIndex].date).isSameOrBefore(d, "day")
     ) {
-      currentHoldings = portfolioHistory[historyIndex].holdings;
+      currentHoldings = new Map(portfolioHistory[historyIndex].holdings);
       historyIndex++;
     }
 
     let dailyValue = 0;
+    let foundPrices = 0;
+    
     for (const [symbol, qty] of currentHoldings.entries()) {
+      if (qty <= 0) continue; // Skip if no holdings
+      
       const symbolPrices = priceMap.get(symbol);
       let price = symbolPrices?.get(dateStr);
-      if (!price) {
-        // If price is not found for the current day (e.g., weekend/holiday), find the last known price
-        let prevDay = d.subtract(1, "day");
-        while (!price && prevDay.isAfter(firstDate.subtract(1, "day"))) {
-          price = symbolPrices?.get(prevDay.format("YYYY-MM-DD"));
-          prevDay = prevDay.subtract(1, "day");
+      
+      // Forward-fill: if no price for this day, use the most recent past price
+      if (!price && symbolPrices) {
+        let lookbackDays = 1;
+        while (!price && lookbackDays <= 7) {
+          const lookbackDate = d.subtract(lookbackDays, "day").format("YYYY-MM-DD");
+          price = symbolPrices.get(lookbackDate);
+          lookbackDays++;
         }
       }
-      dailyValue += qty * (price || 0);
+      
+      if (price && price > 0) {
+        dailyValue += qty * price;
+        foundPrices++;
+      } else {
+        console.log(`[calculatePortfolioValues] No price found for ${symbol} on ${dateStr}, qty: ${qty}`);
+      }
     }
-    portfolioValues.push({ date: dateStr, value: dailyValue });
+    
+    portfolioValues.push({ date: dateStr, value: Number(dailyValue.toFixed(2)) });
+    
+    if (portfolioValues.length <= 5) { // Log first few for debugging
+      console.log(`[calculatePortfolioValues] ${dateStr}: ${currentHoldings.size} symbols, ${foundPrices} with prices, value: $${dailyValue.toFixed(2)}`);
+    }
   }
 
+  console.log(`[calculatePortfolioValues] Generated ${portfolioValues.length} value points`);
   return portfolioValues;
 }
 
