@@ -41,8 +41,6 @@ export async function GET(req: NextRequest) {
       const h = holdings.get(sym) || { symbol: sym, qty: 0, cost: 0 };
       h.qty += qty;
       h.cost += qty * px;
-      // Fees are stored in tx.price? We don't persist fee today on tx, but if present we would subtract from cash.
-      cash -= qty * px;
       holdings.set(sym, h);
     } else if (t.type === "SELL") {
       const h = holdings.get(sym) || { symbol: sym, qty: 0, cost: 0 };
@@ -54,7 +52,6 @@ export async function GET(req: NextRequest) {
       if (sellQty > 0 && avgCost > 0) {
         h.cost = Math.max(0, h.cost - sellQty * avgCost);
       }
-      cash += qty * px;
       holdings.set(sym, h);
     }
   }
@@ -79,18 +76,53 @@ export async function GET(req: NextRequest) {
     });
   }
   
-  // Try to use latest stored price; fallback to provider quote
+  // Try to use provider quotes first (ignore zero/invalid), then fallback to latest daily close
   const latestBySymbol: Record<string, number> = {};
-    if (symbols.length) {
-      try {
-        const list = await buildProvider().getQuote(symbols as string[]);
-        for (const q of list) {
-          if (q.price != null) latestBySymbol[q.symbol] = q.price;
+  if (symbols.length) {
+    try {
+      const list = await buildProvider().getQuote(symbols as string[]);
+      for (const q of list) {
+        if (q.price != null && isFinite(q.price) && q.price > 0) {
+          latestBySymbol[q.symbol] = q.price;
         }
-      } catch (provErr) {
-        console.error("[/api/portfolio] provider.getQuote failed:", provErr);
+      }
+    } catch (provErr) {
+      console.error("[/api/portfolio] provider.getQuote failed:", provErr);
+    }
+    // Fallback: fetch recent daily bars and use the most recent close if quote missing
+    const needFallback = symbols.filter((s) => latestBySymbol[s] == null);
+    if (needFallback.length) {
+      const toDate = dayjs().format("YYYY-MM-DD");
+      const fromDate = dayjs().subtract(21, "day").format("YYYY-MM-DD");
+      for (const s of needFallback) {
+        try {
+          // Try symbol as-is
+          let bars = await getDailyBars([s], fromDate, toDate);
+          // If no bars, try common variant transforms
+          if (!bars || bars.length === 0) {
+            if (s.includes(".")) {
+              bars = await getDailyBars([s.replace(".", "/")], fromDate, toDate);
+            } else if (s.includes("-")) {
+              // Try dot variant for AV-style symbols
+              bars = await getDailyBars([s.replace("-", ".")], fromDate, toDate);
+              if (!bars || bars.length === 0) {
+                bars = await getDailyBars([s.replace("-", "/")], fromDate, toDate);
+              }
+            }
+          }
+          if (bars && bars.length) {
+            // Take the latest close
+            const latest = bars.reduce((a, b) => (a.t > b.t ? a : b));
+            if (latest.c && isFinite(latest.c) && latest.c > 0) {
+              latestBySymbol[s] = latest.c;
+            }
+          }
+        } catch (e) {
+          console.warn(`[portfolio] fallback daily close failed for ${s}:`, e);
+        }
       }
     }
+  }
   // Optional: compute market-baseline cost using historical daily close at buy dates
   let baselineBySymbol: Record<string, { baselineCost: number; qty: number }> = {};
   try {
