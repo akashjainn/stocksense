@@ -36,11 +36,11 @@ type IconType = React.ComponentType<{ size?: number; className?: string }>;
 interface Position {
   symbol: string;
   qty: number;
-  price: number;
-  value: number;
+  price?: number | null;
+  value?: number | null;
   cost: number;
-  pnl: number;
-  pnlPct: number;
+  pnl?: number | null;
+  pnlPct?: number | null;
 }
 
 // Helper function to map symbols to sectors (simplified)
@@ -155,12 +155,13 @@ const StockSenseDashboard = () => {
     const sector = getSectorForSymbol(position.symbol);
     const existing = acc.find(item => item.name === sector);
     
+    const val = typeof position.value === 'number' ? position.value : 0;
     if (existing) {
-      existing.value += position.value;
+      existing.value += val;
     } else {
       acc.push({
         name: sector,
-        value: position.value,
+        value: val,
         percentage: 0 // Will calculate below
       });
     }
