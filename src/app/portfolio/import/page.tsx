@@ -80,6 +80,10 @@ export default function ImportPortfolioPage() {
   const [created, setCreated] = useState<number | null>(null);
   const [positions, setPositions] = useState<Position[]>([]);
   const [equityCurve, setEquityCurve] = useState<{ t: string; v: number }[]>([]);
+  const [totalValue, setTotalValue] = useState(0);
+  const [totalCost, setTotalCost] = useState(0);
+  const [totalPnl, setTotalPnl] = useState(0);
+  const [totalPnlPct, setTotalPnlPct] = useState(0);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [accountsLoading, setAccountsLoading] = useState(true);
@@ -146,16 +150,24 @@ export default function ImportPortfolioPage() {
       }));
       setPositions(pos);
       setEquityCurve((data.equityCurve || []) as EquityPoint[]);
+  // Prefer server-computed totals to keep consistency with Dashboard
+  const tv = Number(data.totalValue || 0);
+  const tc = Number(data.totalCost || 0);
+  setTotalValue(tv);
+  setTotalCost(tc);
+  const pnl = tv - tc;
+  setTotalPnl(pnl);
+  setTotalPnlPct(tc > 0 ? (pnl / tc) * 100 : 0);
     } catch (e) {
       setPositions([]);
       setEquityCurve([]);
+  setTotalValue(0);
+  setTotalCost(0);
+  setTotalPnl(0);
+  setTotalPnlPct(0);
     }
   }
 
-  const totalValue = useMemo(() => positions.reduce((s, p) => s + (p.value ?? 0), 0), [positions]);
-  const totalCost = useMemo(() => positions.reduce((s, p) => s + p.cost, 0), [positions]);
-  const totalPnl = useMemo(() => totalValue - totalCost, [totalValue, totalCost]);
-  const totalPnlPct = useMemo(() => totalCost > 0 ? (totalPnl / totalCost) * 100 : 0, [totalPnl, totalCost]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-neutral-950 to-neutral-900">

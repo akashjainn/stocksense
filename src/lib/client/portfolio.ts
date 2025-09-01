@@ -37,7 +37,8 @@ export async function getPortfolio(accountId: string): Promise<{
   equityCurve: EquityPoint[];
   totals?: { baselineCostMarket?: number; pnlMarket?: number };
 }> {
-  const res = await fetch(`/api/portfolio?accountId=${encodeURIComponent(accountId)}`);
+  // Add a small cache-buster to avoid stale CDN-cached responses right after import
+  const res = await fetch(`/api/portfolio?accountId=${encodeURIComponent(accountId)}&_=${Date.now()}`);
   if (!res.ok) throw new Error(`Failed to load portfolio (${res.status})`);
   return res.json();
 }

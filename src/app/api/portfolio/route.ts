@@ -56,9 +56,11 @@ export async function GET(req: NextRequest) {
     }
   }
   const positions = Array.from(holdings.values()).filter((p) => p.qty > 0);
-  // Normalize symbols for providers (e.g., BRK.B -> BRK.B or BRK-B depending on provider).
+  // Normalize symbols for providers (e.g., BRK.B -> BRK-B) but retain original for reporting
   const normalize = (s: string) => s.replace("/", "-");
-  const symbols = positions.map((p) => normalize(p.symbol));
+  const normalizedByOriginal = new Map<string, string>();
+  for (const p of positions) normalizedByOriginal.set(p.symbol, normalize(p.symbol));
+  const symbols = Array.from(normalizedByOriginal.values());
   
   // Handle empty portfolio case
   if (positions.length === 0) {
@@ -231,7 +233,7 @@ export async function GET(req: NextRequest) {
   }
 
   const enriched = positions.map((p) => {
-    const sym = normalize(p.symbol);
+    const sym = normalizedByOriginal.get(p.symbol) || p.symbol;
     const price = latestBySymbol[sym];
     const value = price != null ? p.qty * price : undefined;
     const pnl = value != null ? value - p.cost : undefined;
