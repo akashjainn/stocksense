@@ -136,9 +136,9 @@ const StockSenseDashboard = () => {
 
   // Prepare chart data from historical data
   const chartData = historicalData?.portfolioHistory.map((point, index) => {
-    const benchmarkPoint = historicalData.benchmark[index];
+    const benchmarkPoint = historicalData.benchmark?.[index];
     return {
-      date: new Date(point.date).toLocaleDateString('en-US', { month: 'short' }),
+      date: new Date(point.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
       value: point.value,
       benchmark: benchmarkPoint?.value || 0
     };
@@ -495,7 +495,13 @@ const StockSenseDashboard = () => {
                           fontSize={12}
                           tickLine={false}
                           axisLine={false}
-                          tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`}
+                          tickFormatter={(value) => {
+                            if (value >= 1000) {
+                              return `$${(value / 1000).toFixed(0)}k`;
+                            } else {
+                              return `$${value.toFixed(0)}`;
+                            }
+                          }}
                         />
                         <Tooltip 
                           contentStyle={{ 
@@ -535,8 +541,13 @@ const StockSenseDashboard = () => {
                         <Activity className="w-12 h-12 mx-auto mb-4 text-neutral-400" />
                         <p className="text-lg font-medium text-neutral-600 dark:text-neutral-400">No Portfolio Data</p>
                         <p className="text-sm text-neutral-500 dark:text-neutral-500 mt-1">
-                          Upload your portfolio to see performance charts
+                          {historicalLoading ? 'Loading portfolio history...' : 'Upload your portfolio to see performance charts'}
                         </p>
+                        {historicalData && (
+                          <p className="text-xs text-neutral-400 mt-2">
+                            Debug: {historicalData.portfolioHistory?.length || 0} history points found
+                          </p>
+                        )}
                       </div>
                     </div>
                   )}
