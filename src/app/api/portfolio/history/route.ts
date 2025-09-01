@@ -19,12 +19,19 @@ export async function GET(req: NextRequest) {
       .find(accountId ? { accountId } : {}, { sort: { tradeDate: 1 } })
       .toArray();
 
+    console.log('[Portfolio History] Found transactions:', txns.length);
+    console.log('[Portfolio History] Sample transaction:', txns[0]);
+
     // Calculate portfolio composition over time
     const portfolioHistory = calculatePortfolioHistory(txns);
+    
+    console.log('[Portfolio History] Timeline entries:', portfolioHistory.length);
     
     // Get historical prices for current holdings
     const currentHoldings = getCurrentHoldings(txns);
   const symbols = Array.from(currentHoldings.keys());
+    
+    console.log('[Portfolio History] Current symbols:', symbols);
     
     if (symbols.length === 0) {
         return NextResponse.json({
@@ -106,7 +113,8 @@ function getCurrentHoldings(txns: any[]) {
   for (const t of txns) {
     if (t.type === "CASH") continue;
     
-    const sym = t.security?.symbol;
+    // Fix: Use t.symbol directly instead of t.security?.symbol
+    const sym = t.symbol || t.security?.symbol;
     if (!sym) continue;
     
     const qty = t.qty != null ? Number(t.qty) : 0;
@@ -160,7 +168,8 @@ function calculatePortfolioHistory(txns: any[]) {
     
     if (t.type === "CASH") continue;
     
-    const sym = t.security?.symbol;
+    // Fix: Use t.symbol directly instead of t.security?.symbol
+    const sym = t.symbol || t.security?.symbol;
     if (!sym) continue;
     
     const qty = t.qty != null ? Number(t.qty) : 0;

@@ -144,6 +144,11 @@ const StockSenseDashboard = () => {
     };
   }) || [];
 
+  // Debug logging
+  console.log('Historical Data:', historicalData);
+  console.log('Chart Data:', chartData);
+  console.log('Portfolio Data:', portfolioData);
+
   // Calculate allocation data from positions
   const allocationData = portfolioData?.positions.reduce((acc, position) => {
     // Simple sector mapping - you could enhance this with a proper sector API
@@ -472,57 +477,69 @@ const StockSenseDashboard = () => {
                   </div>
                 </div>
                 <div className="h-80">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={chartData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e5" className="dark:stroke-neutral-700" />
-                      <XAxis 
-                        dataKey="date" 
-                        stroke="#737373"
-                        className="dark:stroke-neutral-400"
-                        fontSize={12}
-                        tickLine={false}
-                        axisLine={false}
-                      />
-                      <YAxis 
-                        stroke="#737373"
-                        className="dark:stroke-neutral-400"
-                        fontSize={12}
-                        tickLine={false}
-                        axisLine={false}
-                        tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`}
-                      />
-                      <Tooltip 
-                        contentStyle={{ 
-                          backgroundColor: '#ffffff', 
-                          border: '1px solid #e5e5e5', 
-                          borderRadius: '12px',
-                          boxShadow: '0 10px 25px rgba(0,0,0,0.1)'
-                        }} 
-                        wrapperStyle={{ color: '#0a0a0a' }}
-                        labelFormatter={(label) => `Period: ${label}`}
-                        formatter={(value: number | string, name: string) => [
-                          `$${value.toLocaleString()}`,
-                          name === 'value' ? 'Portfolio' : 'Benchmark'
-                        ]}
-                      />
-                      <Line 
-                        type="monotone" 
-                        dataKey="value" 
-                        stroke="#10b981" 
-                        strokeWidth={3} 
-                        dot={{ fill: '#10b981', strokeWidth: 2, r: 4 }} 
-                        activeDot={{ r: 6, stroke: '#10b981', strokeWidth: 2 }} 
-                      />
-                      <Line 
-                        type="monotone" 
-                        dataKey="benchmark" 
-                        stroke="#94a3b8" 
-                        strokeWidth={2} 
-                        strokeDasharray="5 5" 
-                        dot={false} 
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
+                  {chartData.length > 0 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={chartData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e5" className="dark:stroke-neutral-700" />
+                        <XAxis 
+                          dataKey="date" 
+                          stroke="#737373"
+                          className="dark:stroke-neutral-400"
+                          fontSize={12}
+                          tickLine={false}
+                          axisLine={false}
+                        />
+                        <YAxis 
+                          stroke="#737373"
+                          className="dark:stroke-neutral-400"
+                          fontSize={12}
+                          tickLine={false}
+                          axisLine={false}
+                          tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`}
+                        />
+                        <Tooltip 
+                          contentStyle={{ 
+                            backgroundColor: '#ffffff', 
+                            border: '1px solid #e5e5e5', 
+                            borderRadius: '12px',
+                            boxShadow: '0 10px 25px rgba(0,0,0,0.1)'
+                          }} 
+                          wrapperStyle={{ color: '#0a0a0a' }}
+                          labelFormatter={(label) => `Period: ${label}`}
+                          formatter={(value: number | string, name: string) => [
+                            `$${value.toLocaleString()}`,
+                            name === 'value' ? 'Portfolio' : 'Benchmark'
+                          ]}
+                        />
+                        <Line 
+                          type="monotone" 
+                          dataKey="value" 
+                          stroke="#10b981" 
+                          strokeWidth={3} 
+                          dot={{ fill: '#10b981', strokeWidth: 2, r: 4 }} 
+                          activeDot={{ r: 6, stroke: '#10b981', strokeWidth: 2 }} 
+                        />
+                        <Line 
+                          type="monotone" 
+                          dataKey="benchmark" 
+                          stroke="#94a3b8" 
+                          strokeWidth={2} 
+                          strokeDasharray="5 5" 
+                          dot={false} 
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="flex items-center justify-center h-full">
+                      <div className="text-center">
+                        <Activity className="w-12 h-12 mx-auto mb-4 text-neutral-400" />
+                        <p className="text-lg font-medium text-neutral-600 dark:text-neutral-400">No Portfolio Data</p>
+                        <p className="text-sm text-neutral-500 dark:text-neutral-500 mt-1">
+                          Upload your portfolio to see performance charts
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
