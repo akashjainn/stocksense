@@ -79,8 +79,14 @@ export async function POST(req: NextRequest) {
     return new Response(`Parse error: ${nonTrivialErrors[0].message}`, { status: 400 });
   }
   
-  // Keep only rows that look like real transactions (have a date and some descriptor)
-  const rows = (parsed.data || []).filter(r => r && (r["activity date"] || r.activitydate || r.date) && (r.description || r.instrument || r.transcode || r.type));
+  const allRows = (parsed.data || []).filter(Boolean) as Row[];
+  const first = allRows[0] || {};
+  const hasTransType = !!(first.type || first.transactiontype || first.transcode);
+  const hasPositionsCols = !!(first.averageprice || first.avgprice || first.averagecost || first.totalcost || first.costbasis || first.marketvalue);
+  // If positions-like CSV (e.g., Robinhood holdings export), we won't require a date on each row
+  const rows = hasPositionsCols && !hasTransType
+    ? allRows.filter(r => r && (r.symbol || r.ticker || r.instrument) && (r.quantity || r.shares))
+    : allRows.filter(r => r && (r["activity date"] || r.activitydate || r.date || r.tradedate) && (r.description || r.instrument || r.transcode || r.type));
   let created = 0;
   const db = await getMongoDb();
   const txCol = db.collection("transactions");
@@ -98,8 +104,6 @@ export async function POST(req: NextRequest) {
 
     const tradeDate = parseDate(dateStr);
     const mappedType = mapType(typeRaw);
-    if (!mappedType || !tradeDate) continue;
-
     const symbol = symbolRaw.toString().trim().toUpperCase();
     let secId: string | undefined;
     if (symbol) {
@@ -111,6 +115,64 @@ export async function POST(req: NextRequest) {
       const idVal = sec?.value?._id;
       if (idVal) secId = String(idVal);
     }
+
+    // Positions-mode: synthesize BUYs from quantity and average price
+    if (hasPositionsCols && !hasTransType) {
+      const qty = qStr ? parseFloat(qStr.replace(/,/g, '')) : undefined;
+      // Prefer explicit average price columns
+      let avgPrice = undefined as number | undefined;
+      const avgStr = (r.averageprice || r.avgprice || r.averagecost || r.costperunit || r.costpershare || "").toString();
+      if (avgStr) avgPrice = parseFloat(avgStr.replace(/[^0-9.-]+/g, ""));
+      // Try compute from return (unrealized P/L) and market value
+      const mvStr = (r.marketvalue || r.equity || r.currentvalue || "").toString();
+      const retStr = (r.return || r.totalreturn || r.unrealizedpl || r.unrealizedpnl || "").toString();
+      const pctStr = (r.percentchange || r.changepercent || r.percentreturn || "").toString();
+      const marketValue = mvStr ? parseFloat(mvStr.replace(/[^0-9.-]+/g, "")) : undefined;
+      const absReturn = retStr ? parseFloat(retStr.replace(/[^0-9.-]+/g, "")) : undefined;
+      const pctChange = pctStr ? parseFloat(pctStr.replace(/[^0-9.-]+/g, "")) : undefined;
+      if ((avgPrice == null || Number.isNaN(avgPrice)) && qty && qty !== 0) {
+        if (absReturn != null && !Number.isNaN(absReturn) && marketValue != null && !Number.isNaN(marketValue)) {
+          const cost = marketValue - absReturn;
+          avgPrice = cost / qty;
+        } else if (pctChange != null && !Number.isNaN(pctChange) && marketValue != null && !Number.isNaN(marketValue)) {
+          const cost = marketValue / (1 + pctChange / 100);
+          avgPrice = cost / qty;
+        } else {
+          const totalCostStr = (r.totalcost || r.costbasis || r.cost || "").toString();
+          const totalCost = totalCostStr ? parseFloat(totalCostStr.replace(/[^0-9.-]+/g, "")) : undefined;
+          if (totalCost != null && !Number.isNaN(totalCost)) avgPrice = Math.abs(totalCost / qty);
+        }
+      }
+      // Basic sanity: if avgPrice * qty is over 10x current market value, trust market-derived methods if available
+      if (avgPrice != null && marketValue != null && qty && qty > 0 && avgPrice * qty > marketValue * 10) {
+        if (absReturn != null) {
+          const cost = marketValue - absReturn;
+          avgPrice = cost / qty;
+        } else if (pctChange != null) {
+          const cost = marketValue / (1 + pctChange / 100);
+          avgPrice = cost / qty;
+        }
+      }
+      if (!symbol || !qty || !avgPrice || qty <= 0 || avgPrice <= 0) continue;
+      await txCol.insertOne({
+        accountId,
+        securityId: secId ?? null,
+        symbol,
+        type: 'BUY',
+        qty,
+        price: avgPrice,
+        fee: null,
+        // Use provided date if present, else fallback to 30 days ago to allow baseline calc
+        tradeDate: tradeDate ?? dayjs().subtract(30, 'day').toDate(),
+        notes: 'positions-import',
+        createdAt: new Date(),
+      });
+      created++;
+      continue;
+    }
+
+    if (!mappedType || !tradeDate) continue;
+
 
     const qty = qStr ? parseFloat(qStr.replace(/,/g, '')) : undefined;
     let price = pStr ? parseFloat(pStr.replace(/[^0-9.-]+/g, "")) : undefined;
@@ -141,7 +203,7 @@ export async function POST(req: NextRequest) {
       price = Math.abs(amount / qty);
     }
 
-    await txCol.insertOne({
+  await txCol.insertOne({
       accountId,
       securityId: secId ?? null,
       symbol: symbol || undefined,

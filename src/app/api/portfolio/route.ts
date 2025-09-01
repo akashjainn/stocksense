@@ -41,17 +41,27 @@ export async function GET(req: NextRequest) {
       const h = holdings.get(sym) || { symbol: sym, qty: 0, cost: 0 };
       h.qty += qty;
       h.cost += qty * px;
+      // Fees are stored in tx.price? We don't persist fee today on tx, but if present we would subtract from cash.
       cash -= qty * px;
       holdings.set(sym, h);
     } else if (t.type === "SELL") {
       const h = holdings.get(sym) || { symbol: sym, qty: 0, cost: 0 };
-      h.qty -= qty;
+      // Reduce cost using average cost method for remaining lots
+      const sellQty = Math.min(qty, Math.max(h.qty, 0));
+      const avgCost = h.qty > 0 ? h.cost / h.qty : 0;
+      h.qty = h.qty - qty;
+      if (h.qty < 0) h.qty = 0; // guard against over-sell
+      if (sellQty > 0 && avgCost > 0) {
+        h.cost = Math.max(0, h.cost - sellQty * avgCost);
+      }
       cash += qty * px;
       holdings.set(sym, h);
     }
   }
   const positions = Array.from(holdings.values()).filter((p) => p.qty > 0);
-  const symbols = positions.map((p) => p.symbol);
+  // Normalize symbols for providers (e.g., BRK.B -> BRK.B or BRK-B depending on provider).
+  const normalize = (s: string) => s.replace("/", "-");
+  const symbols = positions.map((p) => normalize(p.symbol));
   
   // Handle empty portfolio case
   if (positions.length === 0) {
@@ -169,7 +179,8 @@ export async function GET(req: NextRequest) {
   }
 
   const enriched = positions.map((p) => {
-    const price = latestBySymbol[p.symbol];
+    const sym = normalize(p.symbol);
+    const price = latestBySymbol[sym];
     const value = price != null ? p.qty * price : undefined;
     const pnl = value != null ? value - p.cost : undefined;
     const pnlPct = pnl != null && p.cost > 0 ? (pnl / p.cost) * 100 : undefined;
