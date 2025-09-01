@@ -1,7 +1,7 @@
 import { getMongoDb } from "@/lib/mongodb";
 import type { ObjectId } from "mongodb";
 import { buildProvider } from "@/lib/providers/prices";
-import { getDailyBars } from "@/lib/market/providers/alpaca";
+import { getCandlesMapCached, getQuotesCached, getLatestClose } from "@/lib/pricingCache";
 import dayjs from "dayjs";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -60,6 +60,8 @@ export async function GET(req: NextRequest) {
   const normalize = (s: string) => s.replace("/", "-");
   const normalizedByOriginal = new Map<string, string>();
   for (const p of positions) normalizedByOriginal.set(p.symbol, normalize(p.symbol));
+  const originalByNormalized = new Map<string, string>();
+  for (const [orig, norm] of normalizedByOriginal.entries()) originalByNormalized.set(norm, orig);
   const symbols = Array.from(normalizedByOriginal.values());
   
   // Handle empty portfolio case
@@ -84,58 +86,27 @@ export async function GET(req: NextRequest) {
     // First try: get quotes from provider
     try {
       console.log('[Portfolio] Fetching quotes for symbols:', symbols);
-      const list = await buildProvider().getQuote(symbols as string[]);
-      console.log('[Portfolio] Quote response:', list);
-      
-      for (const q of list) {
-        if (q.price != null && isFinite(q.price) && q.price > 0) {
-          latestBySymbol[q.symbol] = q.price;
-          console.log(`[Portfolio] Valid quote for ${q.symbol}: $${q.price}`);
-        } else {
-          console.warn(`[Portfolio] Invalid quote for ${q.symbol}:`, q.price);
-        }
-      }
+      const provider = buildProvider();
+      const map = await getQuotesCached(provider, symbols as string[]);
+      console.log('[Portfolio] Quote map:', map);
+      Object.assign(latestBySymbol, map);
     } catch (provErr) {
       console.error("[/api/portfolio] provider.getQuote failed:", provErr);
     }
     
-    // Fallback: fetch recent daily bars and use the most recent close if quote missing
+    // Fallback: fetch recent daily candles (provider-based) and use the most recent close if quote missing
     const needFallback = symbols.filter((s) => latestBySymbol[s] == null);
     console.log('[Portfolio] Symbols needing fallback:', needFallback);
     
     if (needFallback.length) {
-      const toDate = dayjs().format("YYYY-MM-DD");
-      const fromDate = dayjs().subtract(21, "day").format("YYYY-MM-DD");
-      
       for (const s of needFallback) {
         try {
           console.log(`[Portfolio] Trying fallback for ${s}...`);
-          // Try symbol as-is
-          let bars = await getDailyBars([s], fromDate, toDate);
-          
-          // If no bars, try common variant transforms
-          if (!bars || bars.length === 0) {
-            if (s.includes(".")) {
-              console.log(`[Portfolio] Trying ${s} -> ${s.replace(".", "/")}`);
-              bars = await getDailyBars([s.replace(".", "/")], fromDate, toDate);
-            } else if (s.includes("-")) {
-              // Try dot variant for AV-style symbols
-              console.log(`[Portfolio] Trying ${s} -> ${s.replace("-", ".")}`);
-              bars = await getDailyBars([s.replace("-", ".")], fromDate, toDate);
-              if (!bars || bars.length === 0) {
-                console.log(`[Portfolio] Trying ${s} -> ${s.replace("-", "/")}`);
-                bars = await getDailyBars([s.replace("-", "/")], fromDate, toDate);
-              }
-            }
-          }
-          
-          if (bars && bars.length) {
-            // Take the latest close
-            const latest = bars.reduce((a, b) => (a.t > b.t ? a : b));
-            if (latest.c && isFinite(latest.c) && latest.c > 0) {
-              latestBySymbol[s] = latest.c;
-              console.log(`[Portfolio] Fallback price for ${s}: $${latest.c} from ${latest.t}`);
-            }
+          const provider = buildProvider();
+          const px = await getLatestClose(provider, s);
+          if (px != null && isFinite(px) && px > 0) {
+            latestBySymbol[s] = px;
+            console.log(`[Portfolio] Fallback price for ${s}: $${px}`);
           } else {
             console.warn(`[Portfolio] No fallback price found for ${s}`);
           }
@@ -164,20 +135,24 @@ export async function GET(req: NextRequest) {
       }
       if (events.length && minDate) {
         const toDate = dayjs().format("YYYY-MM-DD");
-        // Fetch historical bars once per symbol for date span
-        const priceMap: Record<string, Map<string, number>> = {};
+    // Fetch historical candles once per symbol for date span (provider-based)
+    // IMPORTANT: key maps by ORIGINAL symbol (matching txn symbols) for consistent lookups
+    const priceMap: Record<string, Map<string, number>> = {};
+        const provider = buildProvider();
         for (const s of symbols) {
           try {
-            const bars = await getDailyBars([s], minDate, toDate);
+            const candles = await provider.getDailyCandles(s, minDate, toDate);
             const m = new Map<string, number>();
-            for (const b of bars) {
-              const d = dayjs(b.t).format("YYYY-MM-DD");
-              m.set(d, b.c);
+            for (const c of candles) {
+              const d = dayjs(c.t).format("YYYY-MM-DD");
+              m.set(d, c.c);
             }
-            priceMap[s] = m;
+      const originalSym = originalByNormalized.get(s) || s;
+      priceMap[originalSym] = m;
           } catch (err) {
             console.error(`[portfolio] historical fetch failed for ${s}:`, err);
-            priceMap[s] = new Map();
+      const originalSym = originalByNormalized.get(s) || s;
+      priceMap[originalSym] = new Map();
           }
         }
 
@@ -220,10 +195,11 @@ export async function GET(req: NextRequest) {
 
         baselineBySymbol = {};
         for (const s of symbols) {
-          const lots = lotsBySymbol[s] || [];
+          const originalSym = originalByNormalized.get(s) || s;
+          const lots = lotsBySymbol[originalSym] || [];
           const qty = lots.reduce((sum, l) => sum + l.qty, 0);
           const baselineCost = lots.reduce((sum, l) => sum + l.qty * l.price, 0);
-          baselineBySymbol[s] = { baselineCost, qty };
+          baselineBySymbol[originalSym] = { baselineCost, qty };
         }
       }
     }
