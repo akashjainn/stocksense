@@ -1,7 +1,26 @@
 import { useState, useEffect, useCallback } from 'react';
 
+// Shape of the API response returned by /api/portfolio
+export type PortfolioApiResponse = {
+  cash: number;
+  totalCost: number;
+  totalValue: number;
+  positions: Array<{
+    symbol: string;
+    qty: number;
+    cost: number;
+    price?: number | null;
+    value?: number | null;
+    pnl?: number | null;
+    pnlPct?: number | null;
+  }>;
+  equityCurve: Array<{ t: string; v: number }>;
+  // optional fields that may be returned
+  totals?: { baselineCostMarket?: number; pnlMarket?: number };
+};
+
 // Simple cache to avoid re-fetching on every navigation
-const portfolioCache = new Map<string, { data: any; timestamp: number }>();
+const portfolioCache = new Map<string, { data: PortfolioApiResponse; timestamp: number }>();
 const CACHE_DURATION = 30 * 1000; // 30 seconds
 
 export interface PortfolioData {
@@ -14,11 +33,11 @@ export interface PortfolioData {
   positions: Array<{
     symbol: string;
     qty: number;
-    price: number;
-    value: number;
+  price?: number | null;
+  value?: number | null;
     cost: number;
-    pnl: number;
-    pnlPct: number;
+  pnl?: number | null;
+  pnlPct?: number | null;
   }>;
   cash: number;
   equityCurve: Array<{ t: string; v: number }>;
