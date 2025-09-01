@@ -235,6 +235,7 @@ export async function GET(req: NextRequest) {
   const enriched = positions.map((p) => {
     const sym = normalizedByOriginal.get(p.symbol) || p.symbol;
     const price = latestBySymbol[sym];
+    console.log(`[Portfolio] Symbol: ${p.symbol} -> ${sym}, Price: ${price}, Qty: ${p.qty}, Cost: ${p.cost}`);
     const value = price != null ? p.qty * price : undefined;
     const pnl = value != null ? value - p.cost : undefined;
     const pnlPct = pnl != null && p.cost > 0 ? (pnl / p.cost) * 100 : undefined;
@@ -242,10 +243,13 @@ export async function GET(req: NextRequest) {
     const baselineCostMarket = bm?.qty ? bm.baselineCost : undefined;
     const pnlMarket = value != null && baselineCostMarket != null ? value - baselineCostMarket : undefined;
     const pnlPctMarket = pnlMarket != null && baselineCostMarket && baselineCostMarket > 0 ? (pnlMarket / baselineCostMarket) * 100 : undefined;
+    console.log(`[Portfolio] ${p.symbol}: value=${value}, pnl=${pnl}, pnlPct=${pnlPct?.toFixed(2)}%`);
     return { ...p, price, value, pnl, pnlPct, baselineCostMarket, pnlMarket, pnlPctMarket };
   });
   const totalCost = enriched.reduce((s, p) => s + p.cost, 0);
   const totalEquity = enriched.reduce((s, p) => s + (p.value ?? 0), 0) + cash;
+  console.log(`[Portfolio] Total Cost: ${totalCost}, Total Equity: ${totalEquity}, Cash: ${cash}`);
+  console.log(`[Portfolio] Position values: ${enriched.map(p => `${p.symbol}:${p.value}`).join(', ')}`);
   const totalsBaseline = enriched.reduce((s, p) => s + (p.baselineCostMarket ?? 0), 0);
   const totalsPnlMarket = enriched.reduce((s, p) => s + (p.pnlMarket ?? 0), 0);
 
