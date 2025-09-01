@@ -73,6 +73,8 @@ export async function GET(req: NextRequest) {
     const portfolioValues = calculatePortfolioValues(
       portfolioHistory,
       historicalData,
+      fromDate,
+      toDate,
     );
 
     console.log(`[Portfolio History] Calculated ${portfolioValues.length} portfolio value points`);
@@ -292,6 +294,8 @@ async function getHistoricalData(
 function calculatePortfolioValues(
   portfolioHistory: { date: string; holdings: Map<string, number> }[],
   historicalData: Map<string, { date: string; close: number }[]>,
+  fromDateStr: string,
+  toDateStr: string,
 ) {
   console.log("[calculatePortfolioValues] Input - Portfolio history entries:", portfolioHistory.length);
   console.log("[calculatePortfolioValues] Input - Historical data symbols:", Array.from(historicalData.keys()));
@@ -314,13 +318,10 @@ function calculatePortfolioValues(
 
   const portfolioValues: { date: string; value: number }[] = [];
   
-  // Use the transaction date range instead of going all the way to today
-  const firstDate = dayjs(portfolioHistory[0].date);
-  const lastDate = portfolioHistory.length > 1 
-    ? dayjs(portfolioHistory[portfolioHistory.length - 1].date)
-    : dayjs(); // If only one day, use today
-  
-  console.log(`[calculatePortfolioValues] Date range: ${firstDate.format("YYYY-MM-DD")} to ${lastDate.format("YYYY-MM-DD")}`);
+  // Use requested period bounds
+  const firstDate = dayjs(fromDateStr);
+  const lastDate = dayjs(toDateStr);
+  console.log(`[calculatePortfolioValues] Using period: ${firstDate.format("YYYY-MM-DD")} to ${lastDate.format("YYYY-MM-DD")}`);
 
   let currentHoldings = new Map<string, number>();
   let historyIndex = 0;
@@ -334,6 +335,7 @@ function calculatePortfolioValues(
     const dateStr = d.format("YYYY-MM-DD");
 
     // Update holdings if we have a transaction on this day
+    // Advance holdings to include all transactions up to and including this day
     while (
       historyIndex < portfolioHistory.length &&
       dayjs(portfolioHistory[historyIndex].date).isSameOrBefore(d, "day")
@@ -351,13 +353,13 @@ function calculatePortfolioValues(
       const symbolPrices = priceMap.get(symbol);
       let price = symbolPrices?.get(dateStr);
       
-      // Forward-fill: if no price for this day, use the most recent past price
+      // Forward-fill: if no price for this day, use the most recent past price within the period
       if (!price && symbolPrices) {
-        let lookbackDays = 1;
-        while (!price && lookbackDays <= 7) {
-          const lookbackDate = d.subtract(lookbackDays, "day").format("YYYY-MM-DD");
-          price = symbolPrices.get(lookbackDate);
-          lookbackDays++;
+        let prev = d.subtract(1, "day");
+        const start = firstDate.subtract(1, "day");
+        while (!price && prev.isAfter(start)) {
+          price = symbolPrices.get(prev.format("YYYY-MM-DD"));
+          prev = prev.subtract(1, "day");
         }
       }
       
