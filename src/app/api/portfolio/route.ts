@@ -223,8 +223,9 @@ export async function GET(req: NextRequest) {
     return { ...p, price, value, pnl, pnlPct, baselineCostMarket, pnlMarket, pnlPctMarket };
   });
   const totalCost = enriched.reduce((s, p) => s + p.cost, 0);
-  const totalEquity = enriched.reduce((s, p) => s + (p.value ?? 0), 0) + cash;
-  console.log(`[Portfolio] Total Cost: ${totalCost}, Total Equity: ${totalEquity}, Cash: ${cash}`);
+  const equityOnly = enriched.reduce((s, p) => s + (p.value ?? 0), 0);
+  const totalEquityWithCash = equityOnly + cash;
+  console.log(`[Portfolio] Total Cost: ${totalCost}, Equity Only: ${equityOnly}, With Cash: ${totalEquityWithCash}, Cash: ${cash}`);
   console.log(`[Portfolio] Position values: ${enriched.map(p => `${p.symbol}:${p.value}`).join(', ')}`);
   const totalsBaseline = enriched.reduce((s, p) => s + (p.baselineCostMarket ?? 0), 0);
   const totalsPnlMarket = enriched.reduce((s, p) => s + (p.pnlMarket ?? 0), 0);
@@ -233,13 +234,17 @@ export async function GET(req: NextRequest) {
     const curve: { t: string; v: number }[] = [];
     for (let i = 29; i >= 0; i--) {
       const d = dayjs().subtract(i, "day").format("YYYY-MM-DD");
-      curve.push({ t: d, v: totalEquity });
+      // Use equity-only so displayed total matches market value of holdings
+      curve.push({ t: d, v: equityOnly });
     }
 
   return NextResponse.json({ 
     cash, 
     totalCost, 
-    totalValue: totalEquity, 
+    // Report equity-only as totalValue (excludes cash) to match expected display
+    totalValue: equityOnly,
+    // Also include with-cash for consumers that want a net-worth style metric
+    totalValueWithCash: totalEquityWithCash,
     positions: enriched, 
     equityCurve: curve,
     totals: { baselineCostMarket: totalsBaseline, pnlMarket: totalsPnlMarket }
