@@ -9,12 +9,14 @@ import {
   Eye, 
   Bell, 
   Settings,
-  BarChart3
+  BarChart3,
+  TrendingDown
 } from "lucide-react";
 
 const items = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/portfolio/import", label: "Import", icon: Upload },
+  { href: "/options", label: "Options", icon: TrendingDown },
   { href: "/research", label: "Research", icon: TrendingUp },
   { href: "/watchlists", label: "Watchlists", icon: Eye },
   { href: "/alerts", label: "Alerts", icon: Bell },
