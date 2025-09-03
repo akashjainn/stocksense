@@ -115,6 +115,7 @@ export default function ImportPortfolioPage() {
       setTotalPnl(pnl);
       setTotalPnlPct(tc > 0 ? (pnl / tc) * 100 : 0);
     } catch (err) {
+      console.error('buildPositions failed', err);
       setPositions([]);
       setEquityCurve([]);
       setTotalValue(0);
@@ -134,6 +135,7 @@ export default function ImportPortfolioPage() {
         setAccountId(acct.id);
         await buildPositions(acct.id);
       } catch (err) {
+        console.error('ensureAccount failed', err);
         setError(err instanceof Error ? err.message : "Failed to initialize accounts");
       } finally {
         setAccountsLoading(false);
@@ -163,6 +165,7 @@ export default function ImportPortfolioPage() {
       
       await buildPositions();
     } catch (err) {
+      console.error('upload failed', err);
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
       setUploading(false);
@@ -182,6 +185,7 @@ export default function ImportPortfolioPage() {
       clearPortfolioCache(accountId);
       await buildPositions(accountId);
     } catch (err) {
+      console.error('clearPortfolio failed', err);
       setError(err instanceof Error ? err.message : 'Failed to clear portfolio');
     } finally {
       setClearing(false);

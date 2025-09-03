@@ -84,10 +84,7 @@ export async function GET(req: NextRequest) {
     console.log(`[Portfolio History] Benchmark data points: ${benchmarkData.length}`);
 
     // Calculate current totals
-    const currentPrices = await getCurrentPrices(
-      symbols,
-      `portfolio-history-current-prices-${accountId}`,
-    );
+  const currentPrices = await getCurrentPrices(symbols);
     console.log(`[History] Current prices fetched:`, Object.fromEntries(currentPrices));
 
     const { totalValue, totalCost, totalPnl, totalPnlPct } =
@@ -146,7 +143,7 @@ function getPeriodDates(period: string) {
   };
 }
 
-async function getCurrentPrices(symbols: string[], _cacheKey: string) {
+async function getCurrentPrices(symbols: string[]) {
   const provider = buildProvider();
   // The cacheKey is not used here, but we keep the signature for consistency.
   // The ttl is managed within getQuotesCached.
