@@ -34,6 +34,11 @@ type LotSnapshot = {
   effectivePricePerShare: number;
 };
 
+type BatchSnapshotItem = {
+  lot: Lot;
+  snapshot: LotSnapshot;
+};
+
 export default function OptionsPage() {
   const [lots, setLots] = useState<Lot[]>([]);
   const [snapshots, setSnapshots] = useState<Record<string, LotSnapshot>>({});
@@ -44,17 +49,12 @@ export default function OptionsPage() {
     try {
       setLoading(true);
       const acct = await ensureAccount();
-      const res = await fetch(`/api/lots?accountId=${encodeURIComponent(acct.id)}`);
-      const j = await res.json();
-      setLots(j.data ?? []);
-      
-      // Fetch snapshots
-      const snaps: Record<string, LotSnapshot> = {};
-      for (const lot of j.data ?? []) {
-        const r = await fetch(`/api/lots/${lot.id}/snapshot`);
-        const s = await r.json();
-        if (s?.snapshot) snaps[lot.id] = s.snapshot;
-      }
+      const res = await fetch(`/api/lots/snapshots?accountId=${encodeURIComponent(acct.id)}`);
+  const j: { data?: BatchSnapshotItem[] } = await res.json();
+  const items = Array.isArray(j.data) ? j.data : [];
+  const lotsOut: Lot[] = items.map((x) => x.lot);
+  const snaps: Record<string, LotSnapshot> = Object.fromEntries(items.map((x) => [x.lot.id, x.snapshot]));
+      setLots(lotsOut);
       setSnapshots(snaps);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load options data");

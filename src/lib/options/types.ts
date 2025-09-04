@@ -35,7 +35,36 @@ export const OpenOptionSchema = z.object({
   allocations: z.array(z.object({ lotId: z.string(), proportion: z.number().min(0).max(1) })).min(1),
 });
 
+export const CloseOptionSchema = z.object({
+  occurredAt: z.string(),
+  contracts: z.number().int().positive(),
+  pricePerContract: z.number(), // negative premium paid to close (we will store as negative via allocations)
+  fees: z.number().optional().default(0),
+  allocations: z.array(z.object({ lotId: z.string(), proportion: z.number().min(0).max(1) })).min(1),
+});
+
+export const ExpireOptionSchema = z.object({
+  occurredAt: z.string(),
+  contracts: z.number().int().positive().optional(), // default to remaining
+});
+
+export const AssignCallSchema = z.object({
+  occurredAt: z.string(),
+  contracts: z.number().int().positive(),
+  lotId: z.string(),
+});
+
+export const AssignPutSchema = z.object({
+  occurredAt: z.string(),
+  contracts: z.number().int().positive(),
+  accountId: z.string(),
+});
+
 export type CreateLotInput = z.infer<typeof CreateLotSchema>;
 export type SellFromLotInput = z.infer<typeof SellFromLotSchema>;
 export type SplitInput = z.infer<typeof SplitSchema>;
 export type OpenOptionInput = z.infer<typeof OpenOptionSchema>;
+export type CloseOptionInput = z.infer<typeof CloseOptionSchema>;
+export type ExpireOptionInput = z.infer<typeof ExpireOptionSchema>;
+export type AssignCallInput = z.infer<typeof AssignCallSchema>;
+export type AssignPutInput = z.infer<typeof AssignPutSchema>;
