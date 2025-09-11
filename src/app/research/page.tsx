@@ -1,4 +1,5 @@
 "use client";
+import React from "react";
 import Link from "next/link";
 import { 
   TrendingUp, 
@@ -11,6 +12,23 @@ import {
 } from "lucide-react";
 
 export default function ResearchPage() {
+  const [snapshot, setSnapshot] = React.useState<Array<{ name: string; value: number | null; changePct: number | null }> | null>(null);
+  const [snapError, setSnapError] = React.useState<string | null>(null);
+  React.useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const res = await fetch('/api/market/snapshot', { cache: 'no-store' });
+        const data = await res.json();
+        if (!mounted) return;
+        if (data?.data) setSnapshot(data.data);
+      } catch (e) {
+        if (!mounted) return;
+        setSnapError(e instanceof Error ? e.message : 'Failed to load snapshot');
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
   const QuickActionCard = ({ 
     title, 
     description, 
@@ -185,26 +203,26 @@ export default function ResearchPage() {
               </div>
             </div>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              {[
-                { name: 'S&P 500', value: '4,337.44', change: '+0.68%', trend: 'up' },
-                { name: 'NASDAQ', value: '13,461.92', change: '+1.23%', trend: 'up' },
-                { name: 'DOW', value: '34,152.01', change: '+0.45%', trend: 'up' },
-                { name: 'VIX', value: '19.84', change: '-2.15%', trend: 'down' },
-              ].map((index, idx) => (
-                <div key={idx} className="p-4 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/50">
-                  <p className="text-sm font-medium text-neutral-600 dark:text-neutral-400 mb-2">
-                    {index.name}
-                  </p>
-                  <p className="text-lg font-bold text-neutral-900 dark:text-neutral-50 mb-1">
-                    {index.value}
-                  </p>
-                  <div className={`text-sm font-medium ${
-                    index.trend === 'up' ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'
-                  }`}>
-                    {index.change}
+              {(snapshot ?? []).map((idx, i) => {
+                const pct = idx.changePct != null ? (idx.changePct * 100).toFixed(2) + '%' : '—';
+                const trendUp = (idx.changePct ?? 0) >= 0;
+                return (
+                  <div key={i} className="p-4 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/50">
+                    <p className="text-sm font-medium text-neutral-600 dark:text-neutral-400 mb-2">
+                      {idx.name}
+                    </p>
+                    <p className="text-lg font-bold text-neutral-900 dark:text-neutral-50 mb-1">
+                      {idx.value != null ? idx.value.toLocaleString(undefined, { maximumFractionDigits: 2 }) : '—'}
+                    </p>
+                    <div className={`text-sm font-medium ${trendUp ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
+                      {pct}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
+              {!snapshot && (
+                <div className="col-span-4 text-sm text-neutral-500 dark:text-neutral-400">Loading snapshot…{snapError ? ` (${snapError})` : ''}</div>
+              )}
             </div>
           </div>
 
