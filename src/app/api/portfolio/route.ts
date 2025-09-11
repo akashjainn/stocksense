@@ -230,6 +230,61 @@ export async function GET(req: NextRequest) {
   const totalsBaseline = enriched.reduce((s, p) => s + (p.baselineCostMarket ?? 0), 0);
   const totalsPnlMarket = enriched.reduce((s, p) => s + (p.pnlMarket ?? 0), 0);
 
+  // Premium-adjusted cost/share (Sheets parity)
+  // We pull premium allocations from options lots and subtract net premium from cost basis per symbol.
+  // Convention: premiumAllocations.premium is signed (+ received, - paid); fees reduce net premium.
+  const premiumAdjustedBySymbol: Record<string, { premiumApplied: number; adjustedCost: number; adjustedPps: number }> = {};
+  try {
+    if (accountId && enriched.length) {
+      const symbolsSet = new Set(enriched.map((p) => p.symbol));
+      const dbLots = await db
+        .collection("lots")
+        .find({ accountId, symbol: { $in: Array.from(symbolsSet) } }, { projection: { _id: 1, symbol: 1 } })
+        .toArray();
+      const bySymbolLotIds = new Map<string, string[]>();
+      for (const lot of dbLots) {
+        const id = String(lot._id);
+        const arr = bySymbolLotIds.get(lot.symbol) || [];
+        arr.push(id);
+        bySymbolLotIds.set(lot.symbol, arr);
+      }
+      const allLotIds = dbLots.map((l) => String(l._id));
+      if (allLotIds.length) {
+        const allocs = await db
+          .collection("premiumAllocations")
+          .find({ lotId: { $in: allLotIds } }, { projection: { lotId: 1, premium: 1, fees: 1 } })
+          .toArray();
+        const netByLot: Record<string, number> = {};
+        for (const a of allocs) {
+          const lotId = String(a.lotId);
+          const delta = Number(a.premium ?? 0) - Number(a.fees ?? 0);
+          netByLot[lotId] = (netByLot[lotId] ?? 0) + delta;
+        }
+        for (const [sym, lotIds] of bySymbolLotIds.entries()) {
+          const net = lotIds.reduce((s, id) => s + (netByLot[id] ?? 0), 0);
+          const pos = enriched.find((p) => p.symbol === sym);
+          if (!pos || pos.qty <= 0) continue;
+          const adjustedCost = Math.max(0, pos.cost - net);
+          const adjustedPps = adjustedCost / pos.qty;
+          premiumAdjustedBySymbol[sym] = { premiumApplied: net, adjustedCost, adjustedPps };
+        }
+      }
+    }
+  } catch (e) {
+    console.warn("[/api/portfolio] premium adjustment skipped:", e);
+  }
+
+  const positionsWithPremium = enriched.map((p) => {
+    const prem = premiumAdjustedBySymbol[p.symbol];
+    if (!prem) return p;
+    return {
+      ...p,
+      premiumAppliedDollars: prem.premiumApplied,
+      costPerSharePremiumAdj: prem.adjustedPps,
+      costPremiumAdjusted: prem.adjustedCost,
+    } as typeof p & { premiumAppliedDollars: number; costPerSharePremiumAdj: number; costPremiumAdjusted: number };
+  });
+
     // Simple equity curve (flat at current totalEquity for last 30 days)
     const curve: { t: string; v: number }[] = [];
     for (let i = 29; i >= 0; i--) {
@@ -245,7 +300,7 @@ export async function GET(req: NextRequest) {
     totalValue: equityOnly,
     // Also include with-cash for consumers that want a net-worth style metric
     totalValueWithCash: totalEquityWithCash,
-    positions: enriched, 
+    positions: positionsWithPremium, 
     equityCurve: curve,
     totals: { baselineCostMarket: totalsBaseline, pnlMarket: totalsPnlMarket }
   });
