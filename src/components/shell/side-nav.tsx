@@ -15,6 +15,7 @@ import {
 
 const items = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/market", label: "Market", icon: BarChart3 },
   { href: "/portfolio/import", label: "Import", icon: Upload },
   { href: "/options", label: "Options", icon: TrendingDown },
   { href: "/research", label: "Research", icon: TrendingUp },
