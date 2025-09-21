@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import dayjs from "dayjs";
 import { buildProvider } from "@/lib/providers/prices";
+import { fetchYahooDailyCandles } from "@/lib/yahoo";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,23 +23,40 @@ export async function GET(req: NextRequest) {
   if (!symbolRaw) return NextResponse.json({ error: "symbol required" }, { status: 400 });
   const symbol = symbolRaw.toUpperCase();
   try {
-    const provider = buildProvider();
     // Determine from date based on range (MAX = earliest via large lookback)
     const days = RANGE_MAP[range];
     const to = dayjs();
     const from = days ? to.subtract(days, "day") : to.subtract(4000, "day");
-    const candles = await provider.getDailyCandles(symbol, from.format("YYYY-MM-DD"), to.format("YYYY-MM-DD"));
-    const series: Row[] = candles.map((c) => ({
-      date: dayjs(c.t).format("YYYY-MM-DD"),
-      close: c.c,
-      open: c.o,
-      high: c.h,
-      low: c.l,
-      volume: c.v,
-    }));
+
+    let series: Row[] = [];
+    try {
+      const yahoo = await fetchYahooDailyCandles(symbol, from.format("YYYY-MM-DD"), to.format("YYYY-MM-DD"));
+      series = yahoo.map(c => ({
+        date: c.t,
+        close: c.c,
+        open: c.o,
+        high: c.h,
+        low: c.l,
+        volume: c.v,
+      }));
+    } catch {
+      // Yahoo failed (invalid symbol or network). Fallback to AlphaVantage provider.
+      try {
+        const provider = buildProvider();
+        const candles = await provider.getDailyCandles(symbol, from.format("YYYY-MM-DD"), to.format("YYYY-MM-DD"));
+        series = candles.map(c => ({
+          date: dayjs(c.t).format("YYYY-MM-DD"),
+          close: c.c,
+          open: c.o,
+          high: c.h,
+          low: c.l,
+          volume: c.v,
+        }));
+      } catch {/* swallow; series empty */}
+    }
     // Ensure sorted ascending by date
-    series.sort((a, b) => a.date.localeCompare(b.date));
-    return NextResponse.json({ ok: true, symbol, range, series });
+  series.sort((a, b) => a.date.localeCompare(b.date));
+  return NextResponse.json({ ok: true, symbol, range, series });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Unknown error";
     return NextResponse.json({ ok: false, error: msg }, { status: 500 });

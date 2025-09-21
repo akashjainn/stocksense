@@ -95,3 +95,39 @@ export async function fetchYahooOptionMid(ticker: string) {
   const change = mid != null && prevClose != null ? mid - prevClose : null;
   return [[mid, bid, ask, change, strike]] as const;
 }
+
+// Fetch daily candles via Yahoo Chart API between two ISO dates (inclusive)
+// Returns minimal candle objects matching internal Candle shape.
+export async function fetchYahooDailyCandles(symbol: string, fromISO: string, toISO: string) {
+  const period1 = Math.floor(new Date(fromISO + 'T00:00:00Z').getTime() / 1000);
+  const period2 = Math.floor(new Date(toISO + 'T23:59:59Z').getTime() / 1000);
+  const url = `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?period1=${period1}&period2=${period2}&interval=1d&includePrePost=false&events=div%2Csplits`;
+  const res = await fetch(url, { headers: YAHOO_HEADERS, cache: 'no-store' });
+  if (!res.ok) throw new Error(`Yahoo chart failed (${res.status})`);
+  const json = await res.json();
+  const result = json?.chart?.result?.[0];
+  if (!result) return [];
+  const timestamps: number[] = result.timestamp || [];
+  const quote = result.indicators?.quote?.[0] || {};
+  const closes: Array<number | null> = quote.close || [];
+  const opens: Array<number | null> = quote.open || [];
+  const highs: Array<number | null> = quote.high || [];
+  const lows: Array<number | null> = quote.low || [];
+  const volumes: Array<number | null> = quote.volume || [];
+  const out: Array<{ t: string; o?: number; h?: number; l?: number; c: number; v?: number }> = [];
+  for (let i = 0; i < timestamps.length; i++) {
+    const ts = timestamps[i];
+    const d = new Date(ts * 1000).toISOString().slice(0, 10);
+    const c = closes[i];
+    if (c == null || !Number.isFinite(c)) continue; // skip missing
+    out.push({
+      t: d,
+      c,
+      o: opens[i] ?? undefined,
+      h: highs[i] ?? undefined,
+      l: lows[i] ?? undefined,
+      v: volumes[i] ?? undefined,
+    });
+  }
+  return out;
+}
