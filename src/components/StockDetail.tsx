@@ -5,6 +5,7 @@ import { TrendingUp, TrendingDown, ExternalLink, RefreshCw } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import PriceTooltip from "@/components/charts/PriceTooltip";
 
 const RANGES = ["1D", "5D", "1M", "3M", "6M", "1Y", "5Y", "MAX"] as const;
 type RangeKey = typeof RANGES[number];
@@ -347,46 +348,57 @@ export default function StockDetail({ symbol }: StockDetailProps) {
                   <AreaChart data={windowed} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                 <defs>
                   <linearGradient id={`gradient-${symbol}`} x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor={isPositive ? "#10b981" : "#ef4444"} stopOpacity={0.3} />
-                    <stop offset="95%" stopColor={isPositive ? "#10b981" : "#ef4444"} stopOpacity={0} />
+                    <stop offset="5%" stopColor={isPositive ? "#059669" : "#dc2626"} stopOpacity={0.15} />
+                    <stop offset="95%" stopColor={isPositive ? "#059669" : "#dc2626"} stopOpacity={0.02} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.5} />
+                <CartesianGrid 
+                  strokeDasharray="3 3" 
+                  stroke="rgb(229 231 235 / 0.3)" 
+                  className="dark:stroke-neutral-700/30"
+                />
                 <XAxis
                   type="number"
                   dataKey="t"
                   domain={["dataMin", "dataMax"]}
                   axisLine={false}
                   tickLine={false}
-                  tick={{ fontSize: 12, fill: "#6b7280" }}
+                  tick={{ fontSize: 11, fill: "rgb(107 114 128)" }}
+                  className="dark:fill-neutral-400"
                   minTickGap={30}
                   tickFormatter={(v) => timeTickFmt(v as number, selectedRange)}
                 />
                 <YAxis
                   axisLine={false}
                   tickLine={false}
-                  tick={{ fontSize: 12, fill: "#6b7280" }}
+                  tick={{ fontSize: 11, fill: "rgb(107 114 128)" }}
+                  className="dark:fill-neutral-400"
                   domain={domain}
+                  width={65}
                 />
                 <Tooltip 
-                  contentStyle={{
-                    backgroundColor: "white",
-                    border: "1px solid #e5e7eb",
-                    borderRadius: "8px",
-                    boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)"
-                  }}
-                  formatter={(value: number) => [formatNumber(value), "Price"]}
-                  labelFormatter={(label) => {
-                    const d = new Date(label as number);
-                    return d.toLocaleString();
+                  content={<PriceTooltip />}
+                  wrapperStyle={{ outline: "none" }}
+                  cursor={{ 
+                    stroke: "rgb(156 163 175 / 0.4)", 
+                    strokeWidth: 1,
+                    strokeDasharray: "4 4"
                   }}
                 />
                 <Area
                   type="monotone"
                   dataKey="close"
-                  stroke={isPositive ? "#10b981" : "#ef4444"}
+                  stroke={isPositive ? "#059669" : "#dc2626"}
                   strokeWidth={2}
                   fill={`url(#gradient-${symbol})`}
+                  dot={false}
+                  activeDot={{
+                    r: 4,
+                    fill: isPositive ? "#059669" : "#dc2626",
+                    stroke: "white",
+                    strokeWidth: 2,
+                    className: "dark:stroke-neutral-900"
+                  }}
                 />
                   </AreaChart>
                 );
