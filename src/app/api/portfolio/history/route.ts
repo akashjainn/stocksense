@@ -23,12 +23,21 @@ export async function GET(req: NextRequest) {
     
     // Get all transactions for the account
     const db = await getMongoDb();
-    const txns = await db
+    const rawTxns = await db
       .collection("transactions")
       .find(accountId ? { accountId } : {}, { sort: { tradeDate: 1 } })
       .toArray();
+    // Normalize to Transaction[] shape (defensive picks of required fields)
+    const txns: Transaction[] = rawTxns.map((r: any) => ({
+      type: r.type,
+      symbol: r.symbol,
+      security: r.security ? { symbol: r.security.symbol } : undefined,
+      qty: r.qty,
+      price: r.price,
+      tradeDate: r.tradeDate,
+    }));
 
-    console.log("[Portfolio History] Found transactions:", txns.length);
+  console.log("[Portfolio History] Found transactions:", txns.length);
 
     if (txns.length === 0) {
       console.log("[Portfolio History] No transactions found, returning empty data");
@@ -167,8 +176,16 @@ async function getCurrentPrices(symbols: string[]) {
   return prices;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function getCurrentHoldings(txns: any[]) {
+interface Transaction {
+  type: string; // BUY | SELL | CASH | others
+  symbol?: string;
+  security?: { symbol?: string };
+  qty?: number | string;
+  price?: number | string;
+  tradeDate: string | Date;
+}
+
+function getCurrentHoldings(txns: Transaction[]) {
   const holdings = new Map<
     string,
     { symbol: string; qty: number; cost: number; avgPrice: number }
@@ -210,8 +227,7 @@ function getCurrentHoldings(txns: any[]) {
 }
 
 function calculatePortfolioHistory(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  txns: any[],
+  txns: Transaction[],
 ): { date: string; holdings: Map<string, number> }[] {
   const history: { date: string; holdings: Map<string, number> }[] = [];
   if (txns.length === 0) return history;
