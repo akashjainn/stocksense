@@ -2,6 +2,7 @@
 import React from "react";
 
 interface IndexData { symbol: string; label: string; price: number | null; percent: number | null; points: number | null; spark: number[]; }
+interface HistoryPoint { close: number; /* other fields ignored for sparkline */ }
 
 const INDICES: { symbol: string; label: string }[] = [
   { symbol: "SPY", label: "S&P 500" },
@@ -20,8 +21,8 @@ export const IndicesStrip: React.FC = () => {
       const results: IndexData[] = await Promise.all(INDICES.map(async idx => {
         const q = await fetch(`/api/market/quote?symbol=${idx.symbol}`, { cache: "no-store" }).then(r=>r.json()).catch(()=>null);
         const h = await fetch(`/api/market/history?symbol=${idx.symbol}&range=1M`).then(r=>r.json()).catch(()=>null);
-        const series = h?.series || [];
-        const closes = series.slice(-20).map((p: any) => p.close);
+  const series: HistoryPoint[] = (h?.series || []) as HistoryPoint[];
+  const closes = series.slice(-20).map(p => Number(p.close));
         const price = q?.quote?.price ?? null;
         const prev = q?.quote?.previousClose ?? null;
         return {

@@ -5,12 +5,10 @@ import { cn } from "@/lib/ui/cn";
 import { 
   LayoutDashboard, 
   Upload, 
-  TrendingUp, 
   Eye, 
   Bell, 
   Settings,
   BarChart3,
-  TrendingDown
 } from "lucide-react";
 
 const primary = [
