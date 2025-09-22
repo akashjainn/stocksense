@@ -29,6 +29,61 @@ type OHLC = {
   volume?: number;
 };
 
+// ---- Chart axis + range helpers ----
+// Map ranges to approximate window lengths (ms). Daily windows assume ~24h blocks; for higher fidelity intraday you could switch to minute bars.
+const RANGE_WINDOW_MS: Record<RangeKey, number> = {
+  '1D': 24 * 60 * 60 * 1000,
+  '5D': 5 * 24 * 60 * 60 * 1000,
+  '1M': 31 * 24 * 60 * 60 * 1000,
+  '3M': 93 * 24 * 60 * 60 * 1000,
+  '6M': 186 * 24 * 60 * 60 * 1000,
+  '1Y': 372 * 24 * 60 * 60 * 1000,
+  '5Y': 1860 * 24 * 60 * 60 * 1000,
+  'MAX': Number.POSITIVE_INFINITY,
+};
+
+interface NormalizedPoint { t: number; close: number; high: number; low: number; }
+
+function normalizeSeries(rows: OHLC[]): NormalizedPoint[] {
+  return rows.map(r => ({
+    t: new Date(r.date).getTime(),
+    close: Number(r.close),
+    high: Number(r.high ?? r.close),
+    low: Number(r.low ?? r.close),
+  })).filter(d => Number.isFinite(d.t) && Number.isFinite(d.close));
+}
+
+function windowSeries(data: NormalizedPoint[], range: RangeKey): NormalizedPoint[] {
+  if (!data.length) return data;
+  const latest = data[data.length - 1].t;
+  const win = RANGE_WINDOW_MS[range];
+  if (!Number.isFinite(win) || win === Number.POSITIVE_INFINITY) return data;
+  const cutoff = latest - win;
+  return data.filter(d => d.t >= cutoff);
+}
+
+function yDomain(data: NormalizedPoint[], pad = 0.04): [number, number] | [string, string] {
+  if (!data.length) return ['auto','auto'];
+  let lo = Infinity, hi = -Infinity;
+  for (const d of data) {
+    if (d.low < lo) lo = d.low;
+    if (d.high > hi) hi = d.high;
+  }
+  if (!Number.isFinite(lo) || !Number.isFinite(hi)) return ['auto','auto'];
+  const span = hi - lo || Math.max(1, hi * 0.01);
+  const paddedLo = Math.floor((lo - span * pad) * 100) / 100;
+  const paddedHi = Math.ceil((hi + span * pad) * 100) / 100;
+  return [paddedLo, paddedHi];
+}
+
+function timeTickFmt(ts: number, range: RangeKey): string {
+  const d = new Date(ts);
+  if (range === '1D' || range === '5D') return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  if (range === '1M' || range === '3M') return d.toLocaleDateString([], { month: 'short', day: '2-digit' });
+  if (range === '6M' || range === '1Y') return d.toLocaleDateString([], { month: 'short' });
+  return d.toLocaleDateString([], { year: '2-digit', month: 'short' });
+}
+
 type Profile = {
   symbol: string;
   name?: string;
@@ -157,7 +212,8 @@ export default function StockDetail({ symbol }: StockDetailProps) {
   // Fetch history data
   useEffect(() => {
     if (!symbol) return;
-    
+    // clear existing so axes don't flash stale while loading
+    setHistory([]);
     const fetchHistory = async () => {
       setLoadingHistory(true);
       try {
@@ -282,7 +338,12 @@ export default function StockDetail({ symbol }: StockDetailProps) {
         <CardContent>
           <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={history} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+              {(() => {
+                const normalized = normalizeSeries(history);
+                const windowed = windowSeries(normalized, selectedRange);
+                const domain = yDomain(windowed, 0.06);
+                return (
+                  <AreaChart data={windowed} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                 <defs>
                   <linearGradient id={`gradient-${symbol}`} x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor={isPositive ? "#10b981" : "#ef4444"} stopOpacity={0.3} />
@@ -290,18 +351,21 @@ export default function StockDetail({ symbol }: StockDetailProps) {
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.5} />
-                <XAxis 
-                  dataKey="date" 
+                <XAxis
+                  type="number"
+                  dataKey="t"
+                  domain={["dataMin", "dataMax"]}
                   axisLine={false}
                   tickLine={false}
                   tick={{ fontSize: 12, fill: "#6b7280" }}
                   minTickGap={30}
+                  tickFormatter={(v) => timeTickFmt(v as number, selectedRange)}
                 />
-                <YAxis 
+                <YAxis
                   axisLine={false}
                   tickLine={false}
                   tick={{ fontSize: 12, fill: "#6b7280" }}
-                  domain={["dataMin * 0.98", "dataMax * 1.02"]}
+                  domain={domain as any}
                 />
                 <Tooltip 
                   contentStyle={{
@@ -311,7 +375,10 @@ export default function StockDetail({ symbol }: StockDetailProps) {
                     boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)"
                   }}
                   formatter={(value: number) => [formatNumber(value), "Price"]}
-                  labelFormatter={(label) => `Date: ${label}`}
+                  labelFormatter={(label) => {
+                    const d = new Date(label as number);
+                    return d.toLocaleString();
+                  }}
                 />
                 <Area
                   type="monotone"
@@ -320,7 +387,9 @@ export default function StockDetail({ symbol }: StockDetailProps) {
                   strokeWidth={2}
                   fill={`url(#gradient-${symbol})`}
                 />
-              </AreaChart>
+                  </AreaChart>
+                );
+              })()}
             </ResponsiveContainer>
           </div>
         </CardContent>

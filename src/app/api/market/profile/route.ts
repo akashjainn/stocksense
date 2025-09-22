@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
   }
 
   const FMP_KEY = process.env.FMP_KEY;
-  const ALPHA_VANTAGE_KEY = process.env.ALPHA_VANTAGE_KEY || process.env.ALPHA_KEY || process.env.ALPHA; // allow multiple naming conventions
+  const ALPHA_VANTAGE_KEY = process.env.ALPHA_VANTAGE_KEY || process.env.ALPHAVANTAGE_API_KEY || process.env.ALPHADVANTAGE_API_KEY || process.env.ALPHAVANTAGE_KEY || process.env.ALPHA_VANTAGE_KEY || process.env.ALPHA_KEY || process.env.ALPHA; // allow multiple naming conventions (typo tolerant)
 
   // 1. Try Financial Modeling Prep
   if (FMP_KEY) {
