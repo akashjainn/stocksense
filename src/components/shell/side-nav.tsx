@@ -13,12 +13,13 @@ import {
   TrendingDown
 } from "lucide-react";
 
-const items = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+const primary = [
   { href: "/market", label: "Market", icon: BarChart3 },
-  { href: "/portfolio/import", label: "Import", icon: Upload },
-  { href: "/options", label: "Options", icon: TrendingDown },
-  { href: "/research", label: "Research", icon: TrendingUp },
+  { href: "/portfolio", label: "Portfolio", icon: LayoutDashboard },
+  { href: "/transactions", label: "Transactions", icon: Upload },
+];
+
+const secondary = [
   { href: "/watchlists", label: "Watchlists", icon: Eye },
   { href: "/alerts", label: "Alerts", icon: Bell },
   { href: "/settings", label: "Settings", icon: Settings },
@@ -43,7 +44,7 @@ export function SideNav() {
       
       <div className="p-4">
         <div className="space-y-1">
-          {items.map((item) => {
+          {primary.map((item) => {
             const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
             const Icon = item.icon;
             
@@ -69,6 +70,31 @@ export function SideNav() {
         </div>
         
         <div className="mt-8 pt-6 border-t border-neutral-200 dark:border-neutral-800">
+          <p className="px-3 mb-2 text-xs font-medium text-neutral-400 dark:text-neutral-500 uppercase tracking-wider">More</p>
+          <div className="space-y-1 mb-6">
+            {secondary.map(item => {
+              const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+              const Icon = item.icon;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={cn(
+                    "group flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200",
+                    isActive
+                      ? "bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800"
+                      : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-900"
+                  )}
+                >
+                  <Icon className={cn(
+                    "w-5 h-5 transition-colors",
+                    isActive ? "text-emerald-600 dark:text-emerald-400" : "text-neutral-400 group-hover:text-neutral-600 dark:group-hover:text-neutral-300"
+                  )} />
+                  <span>{item.label}</span>
+                </Link>
+              );
+            })}
+          </div>
           <div className="px-3 py-2">
             <p className="text-xs font-medium text-neutral-400 dark:text-neutral-500 uppercase tracking-wider mb-2">Account</p>
             <div className="flex items-center space-x-3 p-2 rounded-lg bg-neutral-50 dark:bg-neutral-900">
