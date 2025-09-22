@@ -92,6 +92,25 @@ export default function StockDetail({ symbol }: StockDetailProps) {
   const [loadingQuote, setLoadingQuote] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [loadingProfile, setLoadingProfile] = useState(false);
+  
+  // Derived 52-week range from loaded history (last ~252 trading sessions) as fallback if API doesn't supply
+  const derived52w = React.useMemo(() => {
+    if (!history || history.length === 0) return { low: undefined as number | undefined, high: undefined as number | undefined };
+    // Use close prices; slice last 252 points (approx 1Y of trading days)
+    const recent = history.slice(-252);
+    let low = Infinity;
+    let high = -Infinity;
+    for (const p of recent) {
+      if (typeof p.close === 'number') {
+        if (p.close < low) low = p.close;
+        if (p.close > high) high = p.close;
+      }
+    }
+    return {
+      low: low === Infinity ? undefined : low,
+      high: high === -Infinity ? undefined : high,
+    };
+  }, [history]);
 
   // Fetch quote data
   useEffect(() => {
@@ -328,14 +347,20 @@ export default function StockDetail({ symbol }: StockDetailProps) {
             />
             <FundamentalCard 
               label="Dividend Yield" 
-              value={profile?.dividendYield ? `${formatNumber(profile.dividendYield)}%` : undefined} 
+              value={
+                typeof profile?.dividendYield === 'number'
+                  ? `${formatNumber(profile.dividendYield)}%`
+                  : undefined
+              } 
             />
             <FundamentalCard 
               label="52W Range" 
               value={
-                profile?.fiftyTwoWeekLow && profile?.fiftyTwoWeekHigh 
+                (profile?.fiftyTwoWeekLow && profile?.fiftyTwoWeekHigh)
                   ? `${formatNumber(profile.fiftyTwoWeekLow)} - ${formatNumber(profile.fiftyTwoWeekHigh)}`
-                  : undefined
+                  : (derived52w.low && derived52w.high)
+                    ? `${formatNumber(derived52w.low)} - ${formatNumber(derived52w.high)}`
+                    : undefined
               } 
             />
             <FundamentalCard 
