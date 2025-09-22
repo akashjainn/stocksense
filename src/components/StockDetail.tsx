@@ -62,7 +62,8 @@ function windowSeries(data: NormalizedPoint[], range: RangeKey): NormalizedPoint
   return data.filter(d => d.t >= cutoff);
 }
 
-function yDomain(data: NormalizedPoint[], pad = 0.04): [number, number] | [string, string] {
+type DomainTuple = [number, number] | ['auto','auto'];
+function yDomain(data: NormalizedPoint[], pad = 0.04): DomainTuple {
   if (!data.length) return ['auto','auto'];
   let lo = Infinity, hi = -Infinity;
   for (const d of data) {
@@ -341,7 +342,7 @@ export default function StockDetail({ symbol }: StockDetailProps) {
               {(() => {
                 const normalized = normalizeSeries(history);
                 const windowed = windowSeries(normalized, selectedRange);
-                const domain = yDomain(windowed, 0.06);
+                const domain: DomainTuple = yDomain(windowed, 0.06);
                 return (
                   <AreaChart data={windowed} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                 <defs>
@@ -365,7 +366,7 @@ export default function StockDetail({ symbol }: StockDetailProps) {
                   axisLine={false}
                   tickLine={false}
                   tick={{ fontSize: 12, fill: "#6b7280" }}
-                  domain={domain as any}
+                  domain={domain}
                 />
                 <Tooltip 
                   contentStyle={{

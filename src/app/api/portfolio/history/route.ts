@@ -23,12 +23,22 @@ export async function GET(req: NextRequest) {
     
     // Get all transactions for the account
     const db = await getMongoDb();
+    interface DbTxn {
+      type: string;
+      symbol?: string;
+      security?: { symbol?: string };
+      qty?: number | string;
+      price?: number | string;
+      tradeDate: string | Date;
+      accountId?: string;
+    }
+
     const rawTxns = await db
-      .collection("transactions")
+      .collection<DbTxn>("transactions")
       .find(accountId ? { accountId } : {}, { sort: { tradeDate: 1 } })
       .toArray();
     // Normalize to Transaction[] shape (defensive picks of required fields)
-    const txns: Transaction[] = rawTxns.map((r: any) => ({
+    const txns: Transaction[] = rawTxns.map((r) => ({
       type: r.type,
       symbol: r.symbol,
       security: r.security ? { symbol: r.security.symbol } : undefined,
