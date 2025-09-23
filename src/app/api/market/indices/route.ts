@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { fetchMajorIndices, type IndexRow } from '@/lib/api/market';
+import { getUsage } from '@/lib/fmpClient';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -10,12 +11,13 @@ const TTL_MS = 30_000; // 30s
 
 export async function GET() {
   try {
+    const usage = await getUsage();
     if (cache && Date.now() - cache.ts < TTL_MS) {
-      return NextResponse.json(cache.data, { headers: { 'x-cache': 'HIT' } });
+      return NextResponse.json(cache.data, { headers: { 'x-cache': 'HIT', 'x-fmp-used': String(usage.used), 'x-fmp-remaining': String(usage.remaining) } });
     }
     const data = await fetchMajorIndices();
     cache = { data, ts: Date.now() };
-    return NextResponse.json(data, { headers: { 'x-cache': 'MISS' } });
+    return NextResponse.json(data, { headers: { 'x-cache': 'MISS', 'x-fmp-used': String(usage.used), 'x-fmp-remaining': String(usage.remaining) } });
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'Unknown error';
     console.error('[api/market/indices] fetch failed:', msg);

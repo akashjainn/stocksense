@@ -52,13 +52,15 @@ async function fetchLeaderboard(kind: "gainers"|"losers"|"actives"): Promise<Lis
   let json: unknown = [];
   try {
     json = await fmpGet(`/${path}`, { ttlSeconds: ttl, staleSeconds: stale, dedupeKey: `leaderboard:${kind}` });
-  } catch (e) {
+  } catch {
     // If totally unavailable return empty; stale handling is in client
     return [];
   }
   if (!Array.isArray(json)) return [];
   return (json as FMPLeaderboardRaw[]).map(r => {
-    const vol = (r as any).volume ?? (r as any).volAvg ?? (r as any).avgVolume ?? (r as any).volumeAvg; // eslint-disable-line @typescript-eslint/no-explicit-any
+  // Volume can appear under different field names; broaden detection
+  const anyRow = r as Record<string, unknown>;
+  const vol = (anyRow.volume ?? anyRow.volAvg ?? anyRow.avgVolume ?? anyRow.volumeAvg) as number | undefined;
     return {
       symbol: (r.symbol || r.ticker || '').toString(),
       name: (r.companyName || r.name || r.symbol || r.ticker || '').toString(),

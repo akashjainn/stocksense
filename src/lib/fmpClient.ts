@@ -22,7 +22,8 @@ function getApiKey(): string {
 }
 
 // In-memory cache map
-interface CacheEntry { expiresAt: number; json: any; staleUntil: number; pending?: Promise<any>; }
+// Generic cache entry; we store unknown and cast at call boundaries
+interface CacheEntry { expiresAt: number; json: unknown; staleUntil: number; pending?: Promise<unknown>; }
 const memoryCache = new Map<string, CacheEntry>();
 
 // Usage tracking (in-memory + optional Redis)
@@ -105,7 +106,7 @@ async function writeRedis(k: string, entry: CacheEntry, ttlSec: number) {
   } catch {/* ignore */}
 }
 
-export async function fmpGet(path: string, opts: FmpFetchOptions = {}): Promise<any> { // eslint-disable-line @typescript-eslint/no-explicit-any
+export async function fmpGet<T = unknown>(path: string, opts: FmpFetchOptions = {}): Promise<T> {
   const apiKey = getApiKey();
   if (!apiKey) throw new Error('Missing FMP API key');
   const ttl = opts.ttlSeconds ?? 180; // default 3m
@@ -118,8 +119,8 @@ export async function fmpGet(path: string, opts: FmpFetchOptions = {}): Promise<
   const now = Date.now();
   const mem = memoryCache.get(k);
   if (mem) {
-    if (mem.expiresAt > now) return mem.json; // Fresh
-    if (mem.pending) return mem.pending;      // In-flight refresh
+  if (mem.expiresAt > now) return mem.json as T; // Fresh
+  if (mem.pending) return mem.pending as Promise<T>;      // In-flight refresh
     // Eligible stale if within stale window
   }
 
@@ -128,15 +129,15 @@ export async function fmpGet(path: string, opts: FmpFetchOptions = {}): Promise<
     const red = await readRedis(k);
     if (red) {
       memoryCache.set(k, red); // hydrate
-      if (red.expiresAt > now) return red.json;
+  if (red.expiresAt > now) return red.json as T;
     }
   }
 
   // If we have stale data and still within stale window, we'll serve it on error
-  const staleData = mem && mem.staleUntil > now ? mem.json : undefined;
+  const staleData: T | undefined = mem && mem.staleUntil > now ? (mem.json as T) : undefined;
 
   // De-duplication: if another call already started after stale detection
-  if (mem && mem.pending) return mem.pending;
+  if (mem && mem.pending) return mem.pending as Promise<T>;
 
   const fetchPromise = (async () => {
     try {
@@ -157,9 +158,9 @@ export async function fmpGet(path: string, opts: FmpFetchOptions = {}): Promise<
       memoryCache.set(k, entry);
       // Persist only fresh window in Redis to avoid long stale bloat
       writeRedis(k, entry, ttl + stale).catch(()=>{});
-      return json;
+  return json as T;
     } catch (e) {
-      if (staleData !== undefined) return staleData;
+  if (staleData !== undefined) return staleData;
       throw e;
     } finally {
       const entry = memoryCache.get(k);
@@ -174,13 +175,13 @@ export async function fmpGet(path: string, opts: FmpFetchOptions = {}): Promise<
     pending: fetchPromise
   });
 
-  return fetchPromise;
+  return fetchPromise as Promise<T>;
 }
 
 // Convenience helpers for specific patterns
 export async function fmpBatchQuote(symbols: string[], opts: FmpFetchOptions = {}) {
   const unique = Array.from(new Set(symbols.filter(Boolean)));
-  if (unique.length === 0) return [] as any[]; // eslint-disable-line @typescript-eslint/no-explicit-any
+  if (unique.length === 0) return [] as unknown[];
   const encoded = encodeURIComponent(unique.join(','));
   return fmpGet(`/quote?symbol=${encoded}`, { ttlSeconds: 180, ...opts });
 }
