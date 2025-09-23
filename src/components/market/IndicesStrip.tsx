@@ -1,6 +1,6 @@
 "use client";
 import React from "react";
-import { fetchMajorIndices } from '@/lib/api/market';
+// Now we call our internal API route so the FMP key stays server-side.
 
 interface IndexData { symbol: string; label: string; price: number | null; percent: number | null; points: number | null; }
 
@@ -19,20 +19,17 @@ export const IndicesStrip: React.FC = () => {
 
   const load = React.useCallback(async () => {
     try {
-      const res = await fetchMajorIndices();
+      const res = await fetch('/api/market/indices', { cache: 'no-store' });
+      if (!res.ok) throw new Error(`status ${res.status}`);
+      const json: Record<string, { price:number; change:number; changesPercentage:number }> = await res.json();
       const rows: IndexData[] = Object.entries(INDEX_MAP).map(([sym, meta]) => {
-        const r = res[sym];
-        const price = r?.price ?? null;
-        const change = r?.change ?? null;
-        const pct = r?.changesPercentage ?? null;
-        return { symbol: sym, label: meta.label, price, points: change, percent: pct };
+        const r = json[sym];
+        return { symbol: sym, label: meta.label, price: r?.price ?? null, points: r?.change ?? null, percent: r?.changesPercentage ?? null };
       });
       setData(rows);
     } catch (e) {
       console.error('[IndicesStrip] failed to fetch indices', e);
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   }, []);
 
   React.useEffect(() => {

@@ -1,6 +1,5 @@
 "use client";
 import React from "react";
-import { fetchLeaderboards } from '@/lib/api/market';
 
 export interface Mover { symbol:string; name:string; price:number; chgPct:number; chg:number; volume:number; }
 
@@ -22,8 +21,9 @@ export const MarketMovers: React.FC<Props> = ({ initialType='gainers' }) => {
   const load = React.useCallback(async () => {
     try {
       setLoading(true);
-      const raw = await fetchLeaderboards();
-      // Map to Mover shape (sparkline omitted for now)
+      const res = await fetch('/api/market/leaderboards', { cache: 'no-store' });
+      if (!res.ok) throw new Error(`status ${res.status}`);
+      const raw: { gainers: any[]; losers: any[]; actives: any[] } = await res.json();
       setBoards({
         gainers: raw.gainers.map(r => ({ symbol:r.symbol, name:r.name, price:r.price, chgPct:r.changePct, chg:r.change, volume:r.volume })),
         losers: raw.losers.map(r => ({ symbol:r.symbol, name:r.name, price:r.price, chgPct:r.changePct, chg:r.change, volume:r.volume })),
@@ -31,9 +31,7 @@ export const MarketMovers: React.FC<Props> = ({ initialType='gainers' }) => {
       });
     } catch (e) {
       console.error('[MarketMovers] failed to load leaderboards', e);
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   }, []);
 
   React.useEffect(()=>{ load(); const id = setInterval(load, 60_000); return ()=>clearInterval(id); }, [load]);
