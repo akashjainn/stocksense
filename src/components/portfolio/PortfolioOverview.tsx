@@ -46,16 +46,17 @@ export const PortfolioOverview: React.FC = () => {
     (async () => {
       try {
         const res = await fetch('/api/portfolio', { cache:'no-store' });
-        const data = await res.json();
-        // positions contain: symbol, qty, cost, price, value
-        const positions = (data.positions||[]).map((p:any)=>({
+        interface ApiPosition { symbol:string; qty:number; cost:number; price?:number; }
+        interface ApiResponse { cash?:number; positions?:ApiPosition[] }
+        const data: ApiResponse = await res.json();
+        const positions = (data.positions||[]).map(p=>({
           shares: p.qty,
           price: p.price,
           prevClose: p.price, // placeholder (API doesn't return prev close yet)
           costBasis: p.cost,
         }));
         const totals = computePortfolioTotals(positions);
-        const cost = (data.positions||[]).reduce((s:number,p:any)=>s + (p.cost||0),0);
+        const cost = (data.positions||[]).reduce((s:number,p)=>s + (p.cost||0),0);
         if (active) setState({
           value: totals.marketValue,
           dayChange: totals.dayChange, // currently 0 due to prevClose placeholder

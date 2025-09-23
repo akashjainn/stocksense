@@ -3,34 +3,45 @@ export type ListRow = { symbol: string; name: string; price: number; changePct: 
 
 const FMP_BASE = "https://financialmodelingprep.com/api/v3";
 
-function getKey() {
-  // In Next.js you'd use process.env but keeping per instructions (Vite style fallback)
-  // @ts-ignore
-  return (import.meta?.env?.VITE_FMP_KEY || process.env.VITE_FMP_KEY || process.env.NEXT_PUBLIC_FMP_KEY || "");
+function getKey(): string {
+  // Support multiple naming conventions; prefer server-only key if available.
+  return (
+    process.env.FMP_API_KEY ||
+    process.env.VITE_FMP_KEY ||
+    process.env.NEXT_PUBLIC_FMP_KEY ||
+    ""
+  );
 }
+
+interface FMPQuoteRaw { symbol: string; price?: number; change?: number; changesPercentage?: number | string; }
+interface FMPLeaderboardRaw { ticker: string; companyName?: string; price?: number; changesPercentage?: number | string; change?: number; volume?: number; }
 
 export async function fetchMajorIndices(): Promise<Record<string, IndexRow>> {
   const key = getKey();
+  if (!key) throw new Error("Missing FMP API key");
   const url = `${FMP_BASE}/quote/^GSPC,^IXIC,^DJI?apikey=${key}`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error("Failed to fetch indices");
-  const rows = await res.json();
-  const clean = (s: any): IndexRow => ({
+  const res = await fetch(url, { cache: 'no-store' });
+  if (!res.ok) throw new Error(`Failed to fetch indices (${res.status})`);
+  const rows: unknown = await res.json();
+  if (!Array.isArray(rows)) return {};
+  const clean = (s: FMPQuoteRaw): IndexRow => ({
     symbol: s.symbol,
     price: Number(s.price ?? 0),
     change: Number(s.change ?? 0),
     changesPercentage: Number(String(s.changesPercentage ?? 0).replace(/[()%]/g, "")),
   });
-  return Object.fromEntries(rows.map((r: any) => [r.symbol, clean(r)]));
+  return Object.fromEntries(rows.map(r => [ (r as FMPQuoteRaw).symbol, clean(r as FMPQuoteRaw) ]));
 }
 
 async function fetchLeaderboard(kind: "gainers"|"losers"|"actives"): Promise<ListRow[]> {
   const key = getKey();
+  if (!key) throw new Error("Missing FMP API key");
   const url = `${FMP_BASE}/stock/${kind}?apikey=${key}`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error("Failed to fetch leaderboard: "+kind);
-  const json = await res.json();
-  return json.map((r: any) => ({
+  const res = await fetch(url, { cache: 'no-store' });
+  if (!res.ok) throw new Error(`Failed to fetch leaderboard ${kind} (${res.status})`);
+  const json: unknown = await res.json();
+  if (!Array.isArray(json)) return [];
+  return (json as FMPLeaderboardRaw[]).map(r => ({
     symbol: r.ticker,
     name: r.companyName ?? r.ticker,
     price: Number(r.price ?? 0),
@@ -40,7 +51,7 @@ async function fetchLeaderboard(kind: "gainers"|"losers"|"actives"): Promise<Lis
   }));
 }
 
-export async function fetchLeaderboards() {
+export async function fetchLeaderboards(): Promise<{ gainers: ListRow[]; losers: ListRow[]; actives: ListRow[] }> {
   const [gainers, losers, actives] = await Promise.all([
     fetchLeaderboard("gainers"),
     fetchLeaderboard("losers"),
