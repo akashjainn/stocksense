@@ -24,13 +24,21 @@ export const MarketMovers: React.FC<Props> = ({ initialType='gainers' }) => {
       setLoading(true);
       const res = await fetch('/api/market/leaderboards', { cache: 'no-store' });
       if (!res.ok) throw new Error(`status ${res.status}`);
-      const raw: any = await res.json();
-      const source = res.ok ? raw : raw.data; // fallback mock if error
+      interface BoardsOk { gainers: ListRow[]; losers: ListRow[]; actives: ListRow[] }
+      interface BoardsErr { error:string; message:string; data?: BoardsOk }
+      const raw: unknown = await res.json();
+      let source: BoardsOk | null = null;
+      if (res.ok) {
+        if (raw && typeof raw === 'object') source = raw as BoardsOk;
+      } else {
+        const err = raw as BoardsErr;
+        if (err && typeof err === 'object' && err.data) source = err.data;
+      }
       if (source) {
         setBoards({
-          gainers: (source.gainers||[]).map((r:ListRow) => ({ symbol:r.symbol, name:r.name, price:r.price, chgPct:r.changePct, chg:r.change, volume:r.volume })),
-          losers: (source.losers||[]).map((r:ListRow) => ({ symbol:r.symbol, name:r.name, price:r.price, chgPct:r.changePct, chg:r.change, volume:r.volume })),
-          actives: (source.actives||[]).map((r:ListRow) => ({ symbol:r.symbol, name:r.name, price:r.price, chgPct:r.changePct, chg:r.change, volume:r.volume })),
+          gainers: source.gainers.map(r => ({ symbol:r.symbol, name:r.name, price:r.price, chgPct:r.changePct, chg:r.change, volume:r.volume })),
+          losers: source.losers.map(r => ({ symbol:r.symbol, name:r.name, price:r.price, chgPct:r.changePct, chg:r.change, volume:r.volume })),
+          actives: source.actives.map(r => ({ symbol:r.symbol, name:r.name, price:r.price, chgPct:r.changePct, chg:r.change, volume:r.volume })),
         });
       }
     } catch (e) {

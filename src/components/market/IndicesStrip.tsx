@@ -21,8 +21,17 @@ export const IndicesStrip: React.FC = () => {
     try {
       const res = await fetch('/api/market/indices', { cache: 'no-store' });
       if (!res.ok) throw new Error(`status ${res.status}`);
-      const json: any = await res.json();
-      const payload = res.ok ? json : json.data || {};
+      type IndexPayload = { price:number; change:number; changesPercentage:number };
+      type IndicesOk = Record<string, IndexPayload>;
+      interface IndicesErr { error:string; message:string; data?: IndicesOk }
+      const raw: unknown = await res.json();
+      let payload: IndicesOk = {};
+      if (res.ok) {
+        if (raw && typeof raw === 'object') payload = raw as IndicesOk;
+      } else {
+        const err = raw as IndicesErr;
+        if (err && typeof err === 'object' && err.data) payload = err.data;
+      }
       const rows: IndexData[] = Object.entries(INDEX_MAP).map(([sym, meta]) => {
         const r = payload[sym];
         return { symbol: sym, label: meta.label, price: r?.price ?? null, points: r?.change ?? null, percent: r?.changesPercentage ?? null };
