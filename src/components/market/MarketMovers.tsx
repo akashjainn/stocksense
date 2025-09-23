@@ -70,7 +70,10 @@ export const MarketMovers: React.FC<Props> = ({ initialType='gainers' }) => {
         <div className="text-xs text-neutral-500">Auto-refresh 60s</div>
       </div>
       {loading && <div className="text-sm text-neutral-500">Loading movers...</div>}
-      {!loading && boards && (
+      {!loading && boards && data.length === 0 && (
+        <div className="text-sm text-neutral-500">No mover data available (API plan limit or upstream empty response).</div>
+      )}
+      {!loading && boards && data.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {data.map((m: Mover) => {
             const pos = m.chgPct >= 0;
