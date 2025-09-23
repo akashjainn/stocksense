@@ -19,14 +19,18 @@ interface FMPLeaderboardRaw { ticker: string; companyName?: string; price?: numb
 
 export async function fetchMajorIndices(): Promise<Record<string, IndexRow>> {
   const key = getKey();
-  // If key is not present on client (private env), call through internal proxy if implemented
   if (!key && typeof window !== 'undefined') {
-    // Attempt a future internal route (graceful empty object for now)
     throw new Error('Missing FMP API key');
   }
-  const url = `${FMP_BASE}/quote/^GSPC,^IXIC,^DJI?apikey=${key}`;
+  const symbols = ['^GSPC','^IXIC','^DJI'];
+  const query = symbols.map(encodeURIComponent).join(',');
+  const url = `${FMP_BASE}/quote/${query}?apikey=${key}`;
   const res = await fetch(url, { cache: 'no-store' });
-  if (!res.ok) throw new Error(`Failed to fetch indices (${res.status})`);
+  if (!res.ok) {
+    let bodySnippet = '';
+    try { bodySnippet = (await res.text()).slice(0,160); } catch {}
+    throw new Error(`Failed to fetch indices (${res.status}) ${bodySnippet}`);
+  }
   const rows: unknown = await res.json();
   if (!Array.isArray(rows)) return {};
   const clean = (s: FMPQuoteRaw): IndexRow => ({
@@ -45,7 +49,11 @@ async function fetchLeaderboard(kind: "gainers"|"losers"|"actives"): Promise<Lis
   }
   const url = `${FMP_BASE}/stock/${kind}?apikey=${key}`;
   const res = await fetch(url, { cache: 'no-store' });
-  if (!res.ok) throw new Error(`Failed to fetch leaderboard ${kind} (${res.status})`);
+  if (!res.ok) {
+    let bodySnippet='';
+    try { bodySnippet = (await res.text()).slice(0,160); } catch {}
+    throw new Error(`Failed to fetch leaderboard ${kind} (${res.status}) ${bodySnippet}`);
+  }
   const json: unknown = await res.json();
   if (!Array.isArray(json)) return [];
   return (json as FMPLeaderboardRaw[]).map(r => ({

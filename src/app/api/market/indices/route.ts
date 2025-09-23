@@ -18,6 +18,13 @@ export async function GET() {
     return NextResponse.json(data, { headers: { 'x-cache': 'MISS' } });
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'Unknown error';
-    return NextResponse.json({ error: 'indices_fetch_failed', message: msg }, { status: 500 });
+    console.error('[api/market/indices] fetch failed:', msg);
+    // Graceful fallback: return mock zeros so UI renders instead of 500 hard error.
+    const fallback: Record<string, IndexRow> = {
+      '^GSPC': { symbol:'^GSPC', price:0, change:0, changesPercentage:0 },
+      '^IXIC': { symbol:'^IXIC', price:0, change:0, changesPercentage:0 },
+      '^DJI': { symbol:'^DJI', price:0, change:0, changesPercentage:0 },
+    };
+    return NextResponse.json({ error: 'indices_fetch_failed', message: msg, data: fallback }, { status: 500 });
   }
 }

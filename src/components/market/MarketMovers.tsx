@@ -24,12 +24,15 @@ export const MarketMovers: React.FC<Props> = ({ initialType='gainers' }) => {
       setLoading(true);
       const res = await fetch('/api/market/leaderboards', { cache: 'no-store' });
       if (!res.ok) throw new Error(`status ${res.status}`);
-      const raw: { gainers: ListRow[]; losers: ListRow[]; actives: ListRow[] } = await res.json();
-      setBoards({
-        gainers: raw.gainers.map(r => ({ symbol:r.symbol, name:r.name, price:r.price, chgPct:r.changePct, chg:r.change, volume:r.volume })),
-        losers: raw.losers.map(r => ({ symbol:r.symbol, name:r.name, price:r.price, chgPct:r.changePct, chg:r.change, volume:r.volume })),
-        actives: raw.actives.map(r => ({ symbol:r.symbol, name:r.name, price:r.price, chgPct:r.changePct, chg:r.change, volume:r.volume })),
-      });
+      const raw: any = await res.json();
+      const source = res.ok ? raw : raw.data; // fallback mock if error
+      if (source) {
+        setBoards({
+          gainers: (source.gainers||[]).map((r:ListRow) => ({ symbol:r.symbol, name:r.name, price:r.price, chgPct:r.changePct, chg:r.change, volume:r.volume })),
+          losers: (source.losers||[]).map((r:ListRow) => ({ symbol:r.symbol, name:r.name, price:r.price, chgPct:r.changePct, chg:r.change, volume:r.volume })),
+          actives: (source.actives||[]).map((r:ListRow) => ({ symbol:r.symbol, name:r.name, price:r.price, chgPct:r.changePct, chg:r.change, volume:r.volume })),
+        });
+      }
     } catch (e) {
       console.error('[MarketMovers] failed to load leaderboards', e);
     } finally { setLoading(false); }

@@ -19,6 +19,16 @@ export async function GET() {
     return NextResponse.json(data, { headers: { 'x-cache': 'MISS' } });
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'Unknown error';
-    return NextResponse.json({ error: 'leaderboards_fetch_failed', message: msg }, { status: 500 });
+    console.error('[api/market/leaderboards] fetch failed:', msg);
+    // Provide mock fallback list to avoid blank UI; clearly marked.
+    const mock = (prefix:string): ListRow[] => Array.from({length:6}).map((_,i)=>({
+      symbol: `${prefix}${i+1}`,
+      name: `Mock ${prefix} ${i+1}`,
+      price: 0,
+      changePct: 0,
+      change: 0,
+      volume: 0,
+    }));
+    return NextResponse.json({ error: 'leaderboards_fetch_failed', message: msg, data: { gainers: mock('G'), losers: mock('L'), actives: mock('A') } }, { status: 500 });
   }
 }
