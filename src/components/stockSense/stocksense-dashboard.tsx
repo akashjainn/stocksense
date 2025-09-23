@@ -1,17 +1,13 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
   PieChart,
   Pie,
   Cell,
+  ResponsiveContainer,
+  Tooltip,
 } from "recharts";
+import TimeSeriesArea from "@/components/charts/TimeSeriesArea";
 import {
   TrendingDown,
   Filter,
@@ -550,75 +546,16 @@ const StockSenseDashboard = () => {
                 </div>
                 <div className="h-80">
                   {chartData.length > 0 ? (
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={chartData}>
-                        <CartesianGrid 
-                          strokeDasharray="3 3" 
-                          stroke="var(--border)" 
-                          className="opacity-30" 
-                        />
-                        <XAxis 
-                          dataKey="date" 
-                          stroke="var(--muted-foreground)"
-                          fontSize={12}
-                          tickLine={false}
-                          axisLine={false}
-                          tick={{ fill: 'var(--muted-foreground)' }}
-                        />
-                        <YAxis 
-                          stroke="var(--muted-foreground)"
-                          fontSize={12}
-                          tickLine={false}
-                          axisLine={false}
-                          tick={{ fill: 'var(--muted-foreground)' }}
-                          tickFormatter={(value) => {
-                            if (value >= 1000000) {
-                              return `$${(value / 1000000).toFixed(1)}M`;
-                            } else if (value >= 1000) {
-                              return `$${(value / 1000).toFixed(0)}K`;
-                            } else {
-                              return `$${value.toFixed(0)}`;
-                            }
-                          }}
-                        />
-                        <Tooltip 
-                          contentStyle={{ 
-                            backgroundColor: 'var(--background)', 
-                            border: '1px solid var(--border)', 
-                            borderRadius: 'var(--radius)',
-                            boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)',
-                            color: 'var(--foreground)'
-                          }} 
-                          labelFormatter={(label) => `Date: ${label}`}
-                          formatter={(value: number | string, name: string) => [
-                            `$${Number(value).toLocaleString()}`,
-                            name === 'value' ? 'Portfolio Value' : 'Benchmark'
-                          ]}
-                        />
-                        <Line 
-                          type="monotone" 
-                          dataKey="value" 
-                          stroke="var(--accent)" 
-                          strokeWidth={2.5} 
-                          dot={false}
-                          activeDot={{ 
-                            r: 4, 
-                            stroke: 'var(--accent)', 
-                            strokeWidth: 2, 
-                            fill: 'var(--background)' 
-                          }} 
-                        />
-                        <Line 
-                          type="monotone" 
-                          dataKey="benchmark" 
-                          stroke="var(--muted-foreground)" 
-                          strokeWidth={1.5} 
-                          strokeDasharray="5 5" 
-                          dot={false} 
-                          opacity={0.7}
-                        />
-                      </LineChart>
-                    </ResponsiveContainer>
+                    <TimeSeriesArea 
+                      data={chartData.map(d => ({
+                        date: d.date,
+                        value: d.value,
+                        benchmark: d.benchmark
+                      }))}
+                      period={selectedPeriod}
+                      isPositive={true}
+                      showBenchmark={true}
+                    />
                   ) : (
                     <div className="flex items-center justify-center h-full">
                       <div className="text-center">
