@@ -43,12 +43,26 @@ export async function GET(req: NextRequest) {
       const response = await fetch(url, { cache: "no-store" });
       if (response.ok) {
         const data = await response.json();
-        const results: SearchResult[] = Array.isArray(data) ? data.map((item: any) => ({
-          symbol: item.symbol,
-          name: item.name || item.companyName || item.symbol,
-          exchange: item.exchange || item.exchangeFullName || 'NASDAQ',
-          type: item.type,
-        })) : [];
+        type FMPNameSearch = {
+          symbol?: string;
+          name?: string;
+          companyName?: string;
+          exchange?: string;
+          exchangeFullName?: string;
+          exchangeShortName?: string;
+          type?: string;
+        };
+        const rawArray: unknown[] = Array.isArray(data) ? data as unknown[] : [];
+        const results: SearchResult[] = rawArray.map((raw): SearchResult => {
+          const item = raw as FMPNameSearch; // narrowing to expected shape
+          const symbol = (item.symbol || '').toString();
+            return {
+              symbol,
+              name: (item.name || item.companyName || symbol),
+              exchange: (item.exchangeShortName || item.exchange || item.exchangeFullName || 'NASDAQ'),
+              type: item.type,
+            };
+        }).filter(r => r.symbol);
         return NextResponse.json(results);
       }
     }
