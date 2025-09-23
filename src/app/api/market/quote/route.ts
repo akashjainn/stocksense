@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchYahooQuoteSummary } from "@/lib/yahoo";
+import { cached } from '@/lib/cache';
 
 // Simple in-memory cache to soften provider latency / transient failures
 const QUOTE_CACHE = new Map<string, { ts: number; data: Quote }>();
@@ -72,56 +73,51 @@ export async function GET(req: NextRequest) {
   const symbol = symbolRaw.toUpperCase();
 
   try {
-    // Cache check
-    const cached = QUOTE_CACHE.get(symbol);
-    if (cached && Date.now() - cached.ts < CACHE_TTL_MS) {
-      return NextResponse.json({ ok: true, quote: cached.data, cached: true });
-    }
-
-    // Primary: Yahoo
-    let yahooQuote: Quote | null = null;
-    try {
-      const { headers, values } = await fetchYahooQuoteSummary(symbol, { price: [
-        'regularMarketPrice',
-        'regularMarketChange',
-        'regularMarketChangePercent',
-        'regularMarketOpen',
-        'regularMarketDayHigh',
-        'regularMarketDayLow',
-        'regularMarketPreviousClose',
-        'regularMarketTime'
-      ] });
-      const data: Record<string, unknown> = {};
-      headers.forEach((h, i) => (data[h] = values[i]));
-      yahooQuote = {
-        symbol,
-        price: toNum(data.regularMarketPrice),
-        change: toNum(data.regularMarketChange),
-        percent: toNum(data.regularMarketChangePercent),
-        open: toNum(data.regularMarketOpen),
-        high: toNum(data.regularMarketDayHigh),
-        low: toNum(data.regularMarketDayLow),
-        previousClose: toNum(data.regularMarketPreviousClose),
-        latestTradingDay: typeof data.regularMarketTime === 'number' ? new Date((data.regularMarketTime as number) * 1000).toISOString().slice(0, 10) : null,
-      };
-    } catch (err) {
-      console.warn('[Quote] Yahoo primary failed:', err);
-    }
-
-    let finalQuote = yahooQuote;
-    if (!finalQuote || finalQuote.price == null) {
-      const av = await fetchFromAlphaVantage(symbol);
-      if (av && av.price != null) {
-        finalQuote = av;
+    const { value: quote } = await cached<Quote | null>({
+      key: `quote:${symbol}`,
+      ttlMs: CACHE_TTL_MS,
+      staleMs: 60_000, // allow 1m stale serve
+      allowNull: false,
+      fetcher: async () => {
+        // Primary: Yahoo
+        let yahooQuote: Quote | null = null;
+        try {
+          const { headers, values } = await fetchYahooQuoteSummary(symbol, { price: [
+            'regularMarketPrice',
+            'regularMarketChange',
+            'regularMarketChangePercent',
+            'regularMarketOpen',
+            'regularMarketDayHigh',
+            'regularMarketDayLow',
+            'regularMarketPreviousClose',
+            'regularMarketTime'
+          ] });
+          const data: Record<string, unknown> = {};
+          headers.forEach((h, i) => (data[h] = values[i]));
+          yahooQuote = {
+            symbol,
+            price: toNum(data.regularMarketPrice),
+            change: toNum(data.regularMarketChange),
+            percent: toNum(data.regularMarketChangePercent),
+            open: toNum(data.regularMarketOpen),
+            high: toNum(data.regularMarketDayHigh),
+            low: toNum(data.regularMarketDayLow),
+            previousClose: toNum(data.regularMarketPreviousClose),
+            latestTradingDay: typeof data.regularMarketTime === 'number' ? new Date((data.regularMarketTime as number) * 1000).toISOString().slice(0, 10) : null,
+          };
+        } catch (err) {
+          console.warn('[Quote] Yahoo primary failed:', err);
+        }
+        let finalQuote = yahooQuote;
+        if (!finalQuote || finalQuote.price == null) {
+          const av = await fetchFromAlphaVantage(symbol);
+          if (av && av.price != null) finalQuote = av;
+        }
+        return finalQuote ?? null;
       }
-    }
-
-    if (!finalQuote) {
-      return NextResponse.json({ ok: false, error: 'quote unavailable' }, { status: 502 });
-    }
-
-    QUOTE_CACHE.set(symbol, { ts: Date.now(), data: finalQuote });
-    return NextResponse.json({ ok: true, quote: finalQuote });
+    });
+    if (!quote) return NextResponse.json({ ok: false, error: 'quote unavailable' }, { status: 502 });
+    return NextResponse.json({ ok: true, quote });
   } catch (e) {
     console.error('[Quote] Fatal error', e);
     return NextResponse.json({ ok: false, error: 'internal error' }, { status: 500 });

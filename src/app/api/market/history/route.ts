@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import dayjs from "dayjs";
+import { cached } from '@/lib/cache';
 import { buildProvider } from "@/lib/providers/prices";
 import { fetchYahooDailyCandles } from "@/lib/yahoo";
 
@@ -23,40 +24,31 @@ export async function GET(req: NextRequest) {
   if (!symbolRaw) return NextResponse.json({ error: "symbol required" }, { status: 400 });
   const symbol = symbolRaw.toUpperCase();
   try {
-    // Determine from date based on range (MAX = earliest via large lookback)
-    const days = RANGE_MAP[range];
-    const to = dayjs();
-    const from = days ? to.subtract(days, "day") : to.subtract(4000, "day");
-
-    let series: Row[] = [];
-    try {
-      const yahoo = await fetchYahooDailyCandles(symbol, from.format("YYYY-MM-DD"), to.format("YYYY-MM-DD"));
-      series = yahoo.map(c => ({
-        date: c.t,
-        close: c.c,
-        open: c.o,
-        high: c.h,
-        low: c.l,
-        volume: c.v,
-      }));
-    } catch {
-      // Yahoo failed (invalid symbol or network). Fallback to AlphaVantage provider.
-      try {
-        const provider = buildProvider();
-        const candles = await provider.getDailyCandles(symbol, from.format("YYYY-MM-DD"), to.format("YYYY-MM-DD"));
-        series = candles.map(c => ({
-          date: dayjs(c.t).format("YYYY-MM-DD"),
-          close: c.c,
-          open: c.o,
-          high: c.h,
-          low: c.l,
-          volume: c.v,
-        }));
-      } catch {/* swallow; series empty */}
-    }
-    // Ensure sorted ascending by date
-  series.sort((a, b) => a.date.localeCompare(b.date));
-  return NextResponse.json({ ok: true, symbol, range, series });
+    const { value } = await cached<Row[]>({
+      key: `history:${symbol}:${range}`,
+      ttlMs: 10 * 60 * 1000, // 10m fresh
+      staleMs: 60 * 60 * 1000, // 1h stale acceptable for chart baselines
+      fetcher: async () => {
+        const days = RANGE_MAP[range];
+        const to = dayjs();
+        const from = days ? to.subtract(days, "day") : to.subtract(4000, "day");
+        // Try Yahoo first
+        let series: Row[] = [];
+        try {
+          const yahoo = await fetchYahooDailyCandles(symbol, from.format("YYYY-MM-DD"), to.format("YYYY-MM-DD"));
+          series = yahoo.map(c => ({ date: c.t, close: c.c, open: c.o, high: c.h, low: c.l, volume: c.v }));
+        } catch {
+          try {
+            const provider = buildProvider();
+            const candles = await provider.getDailyCandles(symbol, from.format("YYYY-MM-DD"), to.format("YYYY-MM-DD"));
+            series = candles.map(c => ({ date: dayjs(c.t).format("YYYY-MM-DD"), close: c.c, open: c.o, high: c.h, low: c.l, volume: c.v }));
+          } catch {/* ignore */}
+        }
+        series.sort((a,b)=> a.date.localeCompare(b.date));
+        return series;
+      }
+    });
+    return NextResponse.json({ ok: true, symbol, range, series: value });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Unknown error";
     return NextResponse.json({ ok: false, error: msg }, { status: 500 });
