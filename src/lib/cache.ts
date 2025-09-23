@@ -27,7 +27,7 @@ export async function cached<T>(opts: CacheOptions<T>): Promise<{ value: T; sour
   const staleMs = opts.staleMs ?? opts.ttlMs * 2;
   const redisKey = `routecache:${opts.key}`;
 
-  let entry = mem.get(opts.key);
+  const entry = mem.get(opts.key);
   if (entry) {
     if (entry.exp > now) return { value: entry.value as T, source: 'memory' };
     if (entry.staleExp > now) {

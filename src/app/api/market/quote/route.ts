@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { fetchYahooQuoteSummary } from "@/lib/yahoo";
 import { cached } from '@/lib/cache';
 
-// Simple in-memory cache to soften provider latency / transient failures
-const QUOTE_CACHE = new Map<string, { ts: number; data: Quote }>();
+// Quote caching handled by shared cache utility; retain TTL constant for clarity
 const CACHE_TTL_MS = 15_000; // 15s quote freshness window
 
 export const runtime = "nodejs";
