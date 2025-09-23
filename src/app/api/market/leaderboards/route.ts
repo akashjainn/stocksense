@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
-import { fetchLeaderboards } from '@/lib/api/market';
+import { fetchLeaderboards, type ListRow } from '@/lib/api/market';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-interface CacheEntry { data: any; ts: number }
+interface LeaderboardData { gainers: ListRow[]; losers: ListRow[]; actives: ListRow[] }
+interface CacheEntry { data: LeaderboardData; ts: number }
 let cache: CacheEntry | null = null;
 const TTL_MS = 45_000; // 45s
 

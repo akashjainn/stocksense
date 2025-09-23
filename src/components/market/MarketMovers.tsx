@@ -1,5 +1,6 @@
 "use client";
 import React from "react";
+import type { ListRow } from '@/lib/api/market';
 
 export interface Mover { symbol:string; name:string; price:number; chgPct:number; chg:number; volume:number; }
 
@@ -23,7 +24,7 @@ export const MarketMovers: React.FC<Props> = ({ initialType='gainers' }) => {
       setLoading(true);
       const res = await fetch('/api/market/leaderboards', { cache: 'no-store' });
       if (!res.ok) throw new Error(`status ${res.status}`);
-      const raw: { gainers: any[]; losers: any[]; actives: any[] } = await res.json();
+      const raw: { gainers: ListRow[]; losers: ListRow[]; actives: ListRow[] } = await res.json();
       setBoards({
         gainers: raw.gainers.map(r => ({ symbol:r.symbol, name:r.name, price:r.price, chgPct:r.changePct, chg:r.change, volume:r.volume })),
         losers: raw.losers.map(r => ({ symbol:r.symbol, name:r.name, price:r.price, chgPct:r.changePct, chg:r.change, volume:r.volume })),

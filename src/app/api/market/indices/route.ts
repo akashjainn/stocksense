@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server';
-import { fetchMajorIndices } from '@/lib/api/market';
+import { fetchMajorIndices, type IndexRow } from '@/lib/api/market';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 // Simple in-memory cache (per server instance) to reduce FMP calls
-let cache: { data: Record<string, any>; ts: number } | null = null;
+let cache: { data: Record<string, IndexRow>; ts: number } | null = null;
 const TTL_MS = 30_000; // 30s
 
 export async function GET() {
