@@ -1,50 +1,45 @@
 "use client";
 import React from "react";
+import { fetchMajorIndices } from '@/lib/api/market';
 
-interface IndexData { symbol: string; label: string; price: number | null; percent: number | null; points: number | null; spark: number[]; }
-interface HistoryPoint { close: number; /* other fields ignored for sparkline */ }
+interface IndexData { symbol: string; label: string; price: number | null; percent: number | null; points: number | null; }
 
-const INDICES: { symbol: string; label: string }[] = [
-  { symbol: "SPY", label: "S&P 500" },
-  { symbol: "QQQ", label: "Nasdaq" },
-  { symbol: "DIA", label: "Dow" },
-];
+// Map real index symbols (FMP uses caret versions like ^GSPC) to display labels
+const INDEX_MAP: Record<string,{ label:string }> = {
+  '^GSPC': { label: 'S&P 500' },
+  '^IXIC': { label: 'Nasdaq' },
+  '^DJI': { label: 'Dow' },
+};
 
 function classNames(...c:(string|false|undefined|null)[]) { return c.filter(Boolean).join(" "); }
 
 export const IndicesStrip: React.FC = () => {
-  const [data, setData] = React.useState<IndexData[]>(() => INDICES.map(i => ({...i, price:null, percent:null, points:null, spark:[]})));
+  const [data, setData] = React.useState<IndexData[]>(() => Object.entries(INDEX_MAP).map(([symbol, meta]) => ({ symbol, label: meta.label, price: null, percent: null, points: null })));
   const [loading, setLoading] = React.useState(true);
 
-  const fetchData = React.useCallback(async () => {
+  const load = React.useCallback(async () => {
     try {
-      const results: IndexData[] = await Promise.all(INDICES.map(async idx => {
-        const q = await fetch(`/api/market/quote?symbol=${idx.symbol}`, { cache: "no-store" }).then(r=>r.json()).catch(()=>null);
-        const h = await fetch(`/api/market/history?symbol=${idx.symbol}&range=1M`).then(r=>r.json()).catch(()=>null);
-  const series: HistoryPoint[] = (h?.series || []) as HistoryPoint[];
-  const closes = series.slice(-20).map(p => Number(p.close));
-        const price = q?.quote?.price ?? null;
-        const prev = q?.quote?.previousClose ?? null;
-        return {
-          symbol: idx.symbol,
-            label: idx.label,
-            price,
-            percent: price!=null && prev!=null ? ((price - prev)/prev)*100 : null,
-            points: price!=null && prev!=null ? price - prev : null,
-            spark: closes,
-        };
-      }));
-      setData(results);
+      const res = await fetchMajorIndices();
+      const rows: IndexData[] = Object.entries(INDEX_MAP).map(([sym, meta]) => {
+        const r = res[sym];
+        const price = r?.price ?? null;
+        const change = r?.change ?? null;
+        const pct = r?.changesPercentage ?? null;
+        return { symbol: sym, label: meta.label, price, points: change, percent: pct };
+      });
+      setData(rows);
+    } catch (e) {
+      console.error('[IndicesStrip] failed to fetch indices', e);
     } finally {
       setLoading(false);
     }
   }, []);
 
   React.useEffect(() => {
-    fetchData();
-    const id = setInterval(fetchData, 60_000); // refresh every 60s
+    load();
+    const id = setInterval(load, 60_000);
     return () => clearInterval(id);
-  }, [fetchData]);
+  }, [load]);
 
   return (
     <div className="flex gap-4 overflow-x-auto pb-1 scrollbar-thin">
@@ -61,23 +56,6 @@ export const IndicesStrip: React.FC = () => {
             </div>
             <div className="text-[10px] text-neutral-500 dark:text-neutral-500">
               {d.points!=null? `${(d.points>=0?"+":"")}${d.points.toFixed(2)}`: ""}
-            </div>
-            <div className="h-6 w-full">
-              <svg viewBox="0 0 100 24" preserveAspectRatio="none" className="h-full w-full">
-                {d.spark.length>1 && (
-                  <polyline
-                    fill="none"
-                    stroke={positive?"#059669":"#dc2626"}
-                    strokeWidth={1.5}
-                    points={d.spark.map((v,i,arr)=>{
-                      const x = (i/(arr.length-1))*100;
-                      const min = Math.min(...arr); const max = Math.max(...arr);
-                      const y = max===min? 12 : 24 - ((v-min)/(max-min))*24;
-                      return `${x},${y}`;
-                    }).join(' ')}
-                  />
-                )}
-              </svg>
             </div>
           </div>
         );
