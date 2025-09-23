@@ -42,7 +42,8 @@ export async function GET(req: NextRequest) {
   // 1. Try Financial Modeling Prep
   if (FMP_KEY) {
     try {
-      const fmpUrl = `https://financialmodelingprep.com/api/v3/profile/${encodeURIComponent(symbol)}?apikey=${FMP_KEY}`;
+      // New stable profile endpoint
+      const fmpUrl = `https://financialmodelingprep.com/stable/profile?symbol=${encodeURIComponent(symbol)}&apikey=${FMP_KEY}`;
       const res = await fetch(fmpUrl, { cache: "no-store" });
       if (res.ok) {
         const json = await res.json();

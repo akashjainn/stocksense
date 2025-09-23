@@ -38,24 +38,17 @@ export async function GET(req: NextRequest) {
     // Try FMP first if API key is available
     const FMP_KEY = process.env.FMP_KEY;
     if (FMP_KEY) {
-      const url = `https://financialmodelingprep.com/api/v3/search?query=${encodeURIComponent(query)}&limit=20&exchange=NASDAQ,NYSE&apikey=${FMP_KEY}`;
+      // Use new stable search-name endpoint (company symbol/name search)
+      const url = `https://financialmodelingprep.com/stable/search-name?query=${encodeURIComponent(query)}&limit=20&exchange=NASDAQ&apikey=${FMP_KEY}`;
       const response = await fetch(url, { cache: "no-store" });
       if (response.ok) {
         const data = await response.json();
-        const results: SearchResult[] = data.map((item: unknown) => {
-          const typedItem = item as {
-            symbol: string;
-            name: string;
-            exchangeShortName: string;
-            type?: string;
-          };
-          return {
-            symbol: typedItem.symbol,
-            name: typedItem.name,
-            exchange: typedItem.exchangeShortName,
-            type: typedItem.type,
-          };
-        });
+        const results: SearchResult[] = Array.isArray(data) ? data.map((item: any) => ({
+          symbol: item.symbol,
+          name: item.name || item.companyName || item.symbol,
+          exchange: item.exchange || item.exchangeFullName || 'NASDAQ',
+          type: item.type,
+        })) : [];
         return NextResponse.json(results);
       }
     }
