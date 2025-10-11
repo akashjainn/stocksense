@@ -1,7 +1,8 @@
 "use client";
 import React from 'react';
+import { dlog } from '@/lib/log';
 
-interface Quote { price:number|null; percent:number|null; change:number|null; }
+interface Quote { price:number|null; percent:number|null; change:number|null; source?:string }
 
 export const WatchlistCard: React.FC<{ symbols?: string[]; onSelect?: (s:string)=>void }> = ({ symbols = ['AAPL','MSFT','NVDA','TSLA'], onSelect }) => {
   const [data, setData] = React.useState<Record<string, Quote>>({});
@@ -9,19 +10,25 @@ export const WatchlistCard: React.FC<{ symbols?: string[]; onSelect?: (s:string)
   React.useEffect(()=>{
     let mounted = true;
     const load = async () => {
-      const entries: [string, Quote][] = await Promise.all(symbols.map(async s => {
-        try {
-          const r = await fetch(`/api/market/quote?symbol=${s}`);
-          const j = await r.json();
-          return [s, { price: j.quote?.price ?? null, percent: j.quote?.percent ?? null, change: j.quote?.change ?? null }];
-        } catch { return [s, { price:null, percent:null, change:null }]; }
-      }));
-      if (mounted) setData(Object.fromEntries(entries));
+      try {
+        const url = `/api/market/quotes?symbols=${symbols.join(',')}`;
+        const r = await fetch(url, { cache: 'no-store' });
+        const j = await r.json();
+        if (!j.ok) throw new Error('quotes not ok');
+        const next: Record<string, Quote> = { ...data }; // preserve existing during partial failures
+        for (const q of j.quotes as any[]) { // eslint-disable-line @typescript-eslint/no-explicit-any
+          next[q.symbol] = { price: q.price, percent: q.percent, change: q.change, source: q.source };
+        }
+        if (mounted) setData(next);
+      } catch (err) {
+        dlog('[Watchlist] batch fetch failed', err);
+      }
     };
     load();
-    const id = setInterval(load, 45_000);
+    const id = setInterval(load, 45_000); // existing cadence
     return () => { mounted=false; clearInterval(id); };
-  }, [symbols]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [symbols.join(',')]);
 
   return (
     <div className="rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-5">
@@ -43,8 +50,8 @@ export const WatchlistCard: React.FC<{ symbols?: string[]; onSelect?: (s:string)
                 <span className="font-medium text-neutral-800 dark:text-neutral-100 text-sm">{sym}</span>
               </div>
               <div className="flex items-center gap-3">
-                <span className="text-sm font-medium text-neutral-800 dark:text-neutral-100">
-                  {q?.price != null ? q.price.toFixed(2) : '—'}
+                <span className="text-sm font-medium text-neutral-800 dark:text-neutral-100 tabular-nums">
+                  {q?.price != null ? q.price.toFixed(2) : (data[sym]?.price != null ? data[sym]?.price?.toFixed(2) : '—')}
                 </span>
                 <span className={`text-xs font-medium ${pos? 'text-emerald-600':'text-red-500'}`}>{q?.percent!=null? `${pos?'+':''}${q.percent.toFixed(2)}%`:'—'}</span>
               </div>

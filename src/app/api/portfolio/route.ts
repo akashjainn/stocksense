@@ -3,6 +3,7 @@ import type { ObjectId } from "mongodb";
 import { buildProvider } from "@/lib/providers/prices";
 import { getQuotesCached, getLatestClose } from "@/lib/pricingCache";
 import dayjs from "dayjs";
+import { dlog, dwarn, derr } from '@/lib/log';
 import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -85,10 +86,10 @@ export async function GET(req: NextRequest) {
   if (symbols.length) {
     // First try: get quotes from provider
     try {
-      console.log('[Portfolio] Fetching quotes for symbols:', symbols);
+  dlog('[Portfolio] Fetching quotes for symbols:', symbols);
       const provider = buildProvider();
       const map = await getQuotesCached(provider, symbols as string[]);
-      console.log('[Portfolio] Quote map:', map);
+  dlog('[Portfolio] Quote map:', map);
       Object.assign(latestBySymbol, map);
     } catch (provErr) {
       console.error("[/api/portfolio] provider.getQuote failed:", provErr);
@@ -96,22 +97,22 @@ export async function GET(req: NextRequest) {
     
     // Fallback: fetch recent daily candles (provider-based) and use the most recent close if quote missing
     const needFallback = symbols.filter((s) => latestBySymbol[s] == null);
-    console.log('[Portfolio] Symbols needing fallback:', needFallback);
+  dlog('[Portfolio] Symbols needing fallback:', needFallback);
     
     if (needFallback.length) {
       for (const s of needFallback) {
         try {
-          console.log(`[Portfolio] Trying fallback for ${s}...`);
+          dlog(`[Portfolio] Trying fallback for ${s}...`);
           const provider = buildProvider();
           const px = await getLatestClose(provider, s);
           if (px != null && isFinite(px) && px > 0) {
             latestBySymbol[s] = px;
-            console.log(`[Portfolio] Fallback price for ${s}: $${px}`);
+            dlog(`[Portfolio] Fallback price for ${s}: $${px}`);
           } else {
-            console.warn(`[Portfolio] No fallback price found for ${s}`);
+            dwarn(`[Portfolio] No fallback price found for ${s}`);
           }
         } catch (e) {
-          console.warn(`[portfolio] fallback daily close failed for ${s}:`, e);
+          dwarn(`[portfolio] fallback daily close failed for ${s}:`, e);
         }
       }
     }
@@ -150,7 +151,7 @@ export async function GET(req: NextRequest) {
       const originalSym = originalByNormalized.get(s) || s;
       priceMap[originalSym] = m;
           } catch (err) {
-            console.error(`[portfolio] historical fetch failed for ${s}:`, err);
+            dwarn(`[portfolio] historical fetch failed for ${s}:`, err);
       const originalSym = originalByNormalized.get(s) || s;
       priceMap[originalSym] = new Map();
           }
@@ -204,14 +205,14 @@ export async function GET(req: NextRequest) {
       }
     }
   } catch (err) {
-    console.warn("[/api/portfolio] baseline market computation skipped:", err);
+  dwarn("[/api/portfolio] baseline market computation skipped:", err);
     baselineBySymbol = {};
   }
 
   const enriched = positions.map((p) => {
     const sym = normalizedByOriginal.get(p.symbol) || p.symbol;
     const price = latestBySymbol[sym];
-    console.log(`[Portfolio] Symbol: ${p.symbol} -> ${sym}, Price: ${price}, Qty: ${p.qty}, Cost: ${p.cost}`);
+  dlog(`[Portfolio] Symbol: ${p.symbol} -> ${sym}, Price: ${price}, Qty: ${p.qty}, Cost: ${p.cost}`);
     const value = price != null ? p.qty * price : undefined;
     const pnl = value != null ? value - p.cost : undefined;
     const pnlPct = pnl != null && p.cost > 0 ? (pnl / p.cost) * 100 : undefined;
@@ -219,14 +220,14 @@ export async function GET(req: NextRequest) {
     const baselineCostMarket = bm?.qty ? bm.baselineCost : undefined;
     const pnlMarket = value != null && baselineCostMarket != null ? value - baselineCostMarket : undefined;
     const pnlPctMarket = pnlMarket != null && baselineCostMarket && baselineCostMarket > 0 ? (pnlMarket / baselineCostMarket) * 100 : undefined;
-    console.log(`[Portfolio] ${p.symbol}: value=${value}, pnl=${pnl}, pnlPct=${pnlPct?.toFixed(2)}%`);
+  dlog(`[Portfolio] ${p.symbol}: value=${value}, pnl=${pnl}, pnlPct=${pnlPct?.toFixed(2)}%`);
     return { ...p, price, value, pnl, pnlPct, baselineCostMarket, pnlMarket, pnlPctMarket };
   });
   const totalCost = enriched.reduce((s, p) => s + p.cost, 0);
   const equityOnly = enriched.reduce((s, p) => s + (p.value ?? 0), 0);
   const totalEquityWithCash = equityOnly + cash;
-  console.log(`[Portfolio] Total Cost: ${totalCost}, Equity Only: ${equityOnly}, With Cash: ${totalEquityWithCash}, Cash: ${cash}`);
-  console.log(`[Portfolio] Position values: ${enriched.map(p => `${p.symbol}:${p.value}`).join(', ')}`);
+  dlog(`[Portfolio] Total Cost: ${totalCost}, Equity Only: ${equityOnly}, With Cash: ${totalEquityWithCash}, Cash: ${cash}`);
+  dlog(`[Portfolio] Position values: ${enriched.map(p => `${p.symbol}:${p.value}`).join(', ')}`);
   const totalsBaseline = enriched.reduce((s, p) => s + (p.baselineCostMarket ?? 0), 0);
   const totalsPnlMarket = enriched.reduce((s, p) => s + (p.pnlMarket ?? 0), 0);
 

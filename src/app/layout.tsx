@@ -40,6 +40,20 @@ export default function RootLayout({
   return (
     <html lang="en" className="h-full">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased h-full overflow-hidden`}>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              '@context': 'https://schema.org',
+              '@type': 'WebApplication',
+              name: 'StockSense',
+              url: 'https://stocksense.app',
+              applicationCategory: 'FinanceApplication',
+              description: 'Advanced portfolio tracking and analytics platform for professional investors',
+              operatingSystem: 'Web',
+            })
+          }}
+        />
         <ReactQueryProvider>
           <div className="h-screen bg-neutral-50 dark:bg-neutral-950 flex">
             {/* Sidebar */}
